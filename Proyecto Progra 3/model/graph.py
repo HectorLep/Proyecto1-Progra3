@@ -139,7 +139,7 @@ class Graph:
                 elif num_nodes == 3:
                     num_w = 1; num_r = 1; num_c = 1;
                 elif num_nodes == 4:
-                num_c = num_nodes - num_w - num_r
+                    num_c = num_nodes - num_w - num_r
 
 
             if num_nodes >= 2:
