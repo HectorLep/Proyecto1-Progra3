@@ -1,3 +1,4 @@
+# prueba.py
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
@@ -14,6 +15,8 @@ from sim.rutas import RouteManager, RouteTracker, RouteOptimizer, OrderSimulator
 import random
 import time
 from validaciones.validaciones import *
+from visual.networkx_adapter import create_network_visualization  # New import
+
 # Configuración de la página
 st.set_page_config(
     page_title="🚁 Drone Logistics Simulator - Correos Chile",
@@ -57,92 +60,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
-# Función para convertir el grafo a NetworkX para visualización
-def graph_to_networkx(graph):
-    G = nx.DiGraph()
-    
-    # Agregar nodos con sus tipos
-    for vertex in graph.vertices():
-        node_id = vertex.element()
-        node_type = vertex.type()
-        G.add_node(node_id, type=node_type)
-    
-    # Agregar aristas
-    for edge in graph.edges():
-        u, v = edge.endpoints()
-        weight = edge.element()
-        G.add_edge(u.element(), v.element(), weight=weight)
-    
-    return G
-
-# Función para crear visualización de red interactiva
-def create_network_visualization(graph):
-    G = graph_to_networkx(graph)
-    pos = nx.spring_layout(G, k=3, iterations=50)
-    
-    # Preparar datos para plotly
-    edge_x = []
-    edge_y = []
-    edge_info = []
-    
-    for edge in G.edges():
-        x0, y0 = pos[edge[0]]
-        x1, y1 = pos[edge[1]]
-        edge_x.extend([x0, x1, None])
-        edge_y.extend([y0, y1, None])
-        weight = G[edge[0]][edge[1]]['weight']
-        edge_info.append(f"{edge[0]} → {edge[1]}: {weight}")
-    
-    # Crear trazos de aristas
-    edge_trace = go.Scatter(x=edge_x, y=edge_y,
-                           line=dict(width=1, color='#888'),
-                           hoverinfo='none',
-                           mode='lines')
-    
-    # Preparar nodos por tipo
-    node_traces = {}
-    colors = {'warehouse': '#8B4513', 'recharge': '#FFA500', 'client': '#32CD32'}
-    
-    for node_type in ['warehouse', 'recharge', 'client']:
-        nodes_of_type = [n for n in G.nodes() if G.nodes[n].get('type') == node_type]
-        if nodes_of_type:
-            node_x = [pos[node][0] for node in nodes_of_type]
-            node_y = [pos[node][1] for node in nodes_of_type]
-            
-            node_traces[node_type] = go.Scatter(
-                x=node_x, y=node_y,
-                mode='markers+text',
-                text=nodes_of_type,
-                textposition='middle center',
-                hoverinfo='text',
-                hovertext=[f"{node} ({node_type})" for node in nodes_of_type],
-                marker=dict(size=20, color=colors[node_type]),
-                name=f"{node_type.title()} Nodes"
-            )
-    
-    # Crear figura
-    fig = go.Figure(data=[edge_trace] + list(node_traces.values()),
-                   layout=go.Layout(
-                      title=dict(
-                          text="Drone Delivery Network",
-                          font=dict(
-                              size=16
-                          )
-                      ),
-                       showlegend=True,
-                       hovermode='closest',
-                       margin=dict(b=20,l=5,r=5,t=40),
-                       annotations=[ dict(
-                           text="Warehouse (Brown) | Recharge (Orange) | Client (Green)",
-                           showarrow=False,
-                           xref="paper", yref="paper",
-                           x=0.005, y=-0.002 ) ],
-                       xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                       yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-                       height=500))
-    
-    return fig
 
 # Función principal de simulación
 @st.cache_data
@@ -272,9 +189,9 @@ if run_button:
     with tab2:
         st.header("🌐 Network Visualization")
         
-        # Crear y mostrar visualización de red
-        network_fig = create_network_visualization(graph)
-        st.plotly_chart(network_fig, use_container_width=True)
+        # Create and show Matplotlib visualization
+        fig = create_network_visualization(graph)
+        st.pyplot(fig)
         
         # Panel de cálculo de rutas
         st.subheader("🧭 Calculate Route")
@@ -303,6 +220,9 @@ if run_button:
                         st.info(f"Total cost: {route.total_cost}")
                         if route.recharge_stops:
                             st.warning(f"Recharge stops: {', '.join(route.recharge_stops)}")
+                        # Redraw the graph with the highlighted route
+                        fig = create_network_visualization(graph, highlighted_route=route.path)
+                        st.pyplot(fig)
                     else:
                         st.error("No valid route found!")
     
