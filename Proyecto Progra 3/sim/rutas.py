@@ -8,27 +8,28 @@ from collections import deque
 import heapq
 import random
 
-# Diccionario para mapear IDs de nodos a sus nombres descriptivos
-node_names = {
-    'A': 'Almacen_A',
-    'B': 'Estacion_B',
-    'C': 'Client_C',
-    'D': 'Client_D',
-    'R1': 'Recarga_R1'
-}
-
-node_types = {
-    'A': 'warehouse',
-    'B': 'recharge',
-    'C': 'client',
-    'D': 'client',
-    'R1': 'recharge'
-}
+# # Diccionario para mapear IDs de nodos a sus nombres descriptivos
+# node_names = {
+#     'A': 'Almacen_A',
+#     'B': 'Estacion_B',
+#     'C': 'Client_C',
+#     'D': 'Client_D',
+#     'R1': 'Recarga_R1'
+# }
+# 
+# node_types = {
+#     'A': 'warehouse',
+#     'B': 'recharge',
+#     'C': 'client',
+#     'D': 'client',
+#     'R1': 'recharge'
+# }
 
 class RouteManager:
     def __init__(self, graph):
         self.graph = graph
-        self.node_types = node_types
+        self.vertex_types = {v.element(): v.type() for v in self.graph.vertices()}
+
 
     def find_route_with_recharge(self, origin_id, destination_id, battery_limit=50):
         """BFS modificado que considera el costo acumulado usando heap."""
@@ -45,7 +46,7 @@ class RouteManager:
             visited[state] = total_cost
             
             if node_id == destination_id:
-                final_recharge_stops = [n for n in path if self.node_types.get(n) == 'recharge']
+                final_recharge_stops = [n for n in path if self.vertex_types.get(n) == 'recharge']
                 return Route(path, total_cost, final_recharge_stops, segments)
 
             current_vertex = vertex_map[node_id]
@@ -83,7 +84,7 @@ class RouteManager:
 
     def find_nearest_recharge(self, node_id):
         """Find the nearest recharge station using BFS."""
-        if self.node_types.get(node_id) == 'recharge':
+        if self.vertex_types.get(node_id) == 'recharge':
             return node_id
         
         vertex_map = {v.element(): v for v in self.graph.vertices()}
@@ -92,7 +93,7 @@ class RouteManager:
         
         while queue:
             curr, dist = queue.popleft()
-            if self.node_types.get(curr) == 'recharge':
+            if self.vertex_types.get(curr) == 'recharge':
                 return curr
             
             current_vertex = vertex_map[curr]
@@ -138,15 +139,15 @@ class RouteTracker:
         """Register a route using AVL and update clients/orders."""
         route_str = "→".join(str(node_id) for node_id in route.path)
         
-        # Update AVL for route frequencies
+        # actualiza AVL por ruta de frecuencia
         self.route_frequency_avl = avl_insert(self.route_frequency_avl, route_str)
         
-        # Update node visit counts
+        # actualiza la visita de nodos
         for node_id in route.path:
             count = self.node_visits.get(node_id) or 0
             self.node_visits.put(node_id, count + 1)
         
-        # Register client and order
+        # registra cliente y orden
         self.clients.put(order.client_id, order.client)
         self.orders.put(order.id, order)
 
@@ -205,14 +206,14 @@ class RouteOptimizer:
         # Most visited nodes
         patterns.append("\n=== NODOS MÁS VISITADOS ===")
         for node, visits in self.route_tracker.get_node_visit_stats()[:5]:
-            node_name = node_names.get(node, node)
-            patterns.append(f"Nodo: {node_name} ({node}) | Visitas: {visits}")
+
+            patterns.append(f"Nodo: {node} | Visitas: {visits}")
         
         # Client statistics
         patterns.append("\n=== ESTADÍSTICAS DE CLIENTES ===")
         for client_id, orders in self.route_tracker.get_client_stats()[:5]:
-            client_name = node_names.get(client_id, client_id)
-            patterns.append(f"Cliente: {client_name} ({client_id}) | Órdenes: {orders}")
+
+            patterns.append(f"Cliente: {client_id} | Órdenes: {orders}")
         
         return patterns
 
@@ -228,9 +229,9 @@ class OrderSimulator:
     def process_orders(self, num_orders=10):
         """Process orders with required output format."""
         warehouses = [v.element() for v in self.route_manager.graph.vertices() 
-                     if self.route_manager.node_types.get(v.element()) == 'warehouse']
+                     if self.route_manager.vertex_types.get(v.element()) == 'warehouse']
         clients = [v.element() for v in self.route_manager.graph.vertices() 
-                  if self.route_manager.node_types.get(v.element()) == 'client']
+                  if self.route_manager.vertex_types.get(v.element()) == 'client']
         
         for i in range(num_orders):
             if not warehouses or not clients:
@@ -239,12 +240,12 @@ class OrderSimulator:
                 
             origin = random.choice(warehouses)
             destination = random.choice(clients)
-            client = self.route_tracker.clients.get(destination)
-            if not client:
-                client = Client(destination, node_names.get(destination, f"Cliente_{destination}"))
-                self.route_tracker.clients.put(destination, client)
+            client_obj = self.route_tracker.clients.get(destination)
+            if not client_obj:
+                client_obj = Client(destination, destination) # Use ID as name
+                self.route_tracker.clients.put(destination, client_obj)
             
-            order = Order(i+1, client, origin, destination)
+            order = Order(i+1, client_obj, origin, destination)
             
             route = self.route_manager.find_route_with_recharge(origin, destination)
             
@@ -252,17 +253,17 @@ class OrderSimulator:
                 order.mark_delivered(route.total_cost)
                 self.route_tracker.register_route(route, order)
                 
-                origin_name = node_names.get(origin, f"Nodo_{origin}")
-                dest_name = node_names.get(destination, f"Nodo_{destination}")
-                route_names = [node_names.get(node, f"Nodo_{node}") for node in route.path]
-                recharge_names = [node_names.get(node, f"Nodo_{node}") for node in route.recharge_stops]
+                origin_name = origin 
+                dest_name = destination
+                route_names = [node_id for node_id in route.path]
+                recharge_names = [node_id for node_id in route.recharge_stops]
                 
                 print(f"Orden #{i+1}: {origin_name} → {dest_name}")
                 print(f"Ruta: {' → '.join(route_names)}")
                 print(f"Costo: {route.total_cost} | Paradas de recarga: {recharge_names} | Estado: Entregado")
             else:
                 order.mark_failed()
-                origin_name = node_names.get(origin, f"Nodo_{origin}")
-                dest_name = node_names.get(destination, f"Nodo_{destination}")
+                origin_name = origin
+                dest_name = destination
                 print(f"Orden #{i+1}: {origin_name} → {dest_name}")
                 print(f"Estado: No se encontró ruta válida")
