@@ -13,7 +13,7 @@ from tda.mapa_hash import HashMap
 from sim.rutas import RouteManager, RouteTracker, RouteOptimizer, OrderSimulator
 import random
 import time
-
+from validaciones.validaciones import *
 # Configuración de la página
 st.set_page_config(
     page_title="🚁 Drone Logistics Simulator - Correos Chile",
@@ -293,6 +293,10 @@ if run_button:
             if st.button("🔍 Calculate Route", type="secondary"):
                 if origin_node and dest_node:
                     manager = RouteManager(graph)
+                    es_valido, mensaje_error = validar_calculo_ruta(graph, origin_node, dest_node)
+                    if not es_valido:
+                        st.error(mensaje_error)
+                        st.stop()
                     route = manager.find_route_with_recharge(origin_node, dest_node)
                     if route:
                         st.success(f"Route found: {' → '.join(route.path)}")
