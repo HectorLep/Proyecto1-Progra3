@@ -124,8 +124,12 @@ def create_network_visualization(graph):
     # Crear figura
     fig = go.Figure(data=[edge_trace] + list(node_traces.values()),
                    layout=go.Layout(
-                       title="Drone Delivery Network",
-                       titlefont_size=16,
+                      title=dict(
+                          text="Drone Delivery Network",
+                          font=dict(
+                              size=16
+                          )
+                      ),
                        showlegend=True,
                        hovermode='closest',
                        margin=dict(b=20,l=5,r=5,t=40),
