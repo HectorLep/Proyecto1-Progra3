@@ -1,122 +1,128 @@
+import heapq
 import random
 import time
 from collections import defaultdict, Counter
 from domain.cliente import Client
 from domain.orden import Order
 from domain.ruta import Route
+from model.graph import Graph
 
 class RouteManager:
-    """Gestor principal de rutas para el sistema de drones"""
-    
     def __init__(self, graph):
         self.graph = graph
         self.route_cache = {}
-        self.recharge_threshold = 50  # Umbral de batería para buscar recarga
-        
+        self.recharge_threshold = 50  
+
+    def _get_vertex_by_id(self, vertex_id):
+        for v in self.graph.vertices():
+            if v.element() == vertex_id:
+                return v
+        return None
+
+    def _dijkstra(self, start_id, end_id):
+        start_vertex = self._get_vertex_by_id(start_id)
+        end_vertex = self._get_vertex_by_id(end_id)
+
+        if not start_vertex or not end_vertex:
+            return None
+
+        distances = {v.element(): float('infinity') for v in self.graph.vertices()}
+        predecessors = {v.element(): None for v in self.graph.vertices()}
+        distances[start_id] = 0
+        priority_queue = [(0, start_id)]  # (cost, vertex_id)
+
+        while priority_queue:
+            current_cost, current_id = heapq.heappop(priority_queue)
+
+            if current_cost > distances[current_id]:
+                continue
+
+            if current_id == end_id:
+                path = []
+                while current_id is not None:
+                    path.insert(0, current_id)
+                    current_id = predecessors[current_id]
+                return {'path': path, 'cost': distances[end_id]}
+
+            current_vertex = self._get_vertex_by_id(current_id)
+            if current_vertex:
+                for edge in self.graph.incident_edges(current_vertex):
+                    neighbor_vertex = edge.opposite(current_vertex)
+                    weight = edge.element()
+                    new_cost = distances[current_id] + weight
+
+                    if new_cost < distances[neighbor_vertex.element()]:
+                        distances[neighbor_vertex.element()] = new_cost
+                        predecessors[neighbor_vertex.element()] = current_id
+                        heapq.heappush(priority_queue, (new_cost, neighbor_vertex.element()))
+        return None
+
+    def _route_feasible_with_battery(self, route_info, max_battery):
+        return route_info['cost'] <= max_battery
+
+    def _find_route_with_recharge_stops(self, origin, destination, max_battery):
+        recharge_stations = [v.element() for v in self.graph.vertices() if v.type() == 'recharge']
+        best_route = None
+        min_total_cost = float('infinity')
+
+        for recharge_stop in recharge_stations:
+            path1_info = self._dijkstra(origin, recharge_stop)
+            if not path1_info or not self._route_feasible_with_battery(path1_info, max_battery):
+                continue
+
+            path2_info = self._dijkstra(recharge_stop, destination)
+            if not path2_info or not self._route_feasible_with_battery(path2_info, max_battery):
+                continue
+
+            total_cost = path1_info['cost'] + path2_info['cost']
+            if total_cost < min_total_cost:
+                min_total_cost = total_cost
+                best_route = Route(
+                    path1_info['path'][:-1] + path2_info['path'],
+                    total_cost,
+                    [recharge_stop], # Una única parada de recarga
+                    [path1_info['cost'], path2_info['cost']] # Costos de los segmentos
+                )
+        return best_route
+
     def find_route_with_recharge(self, origin, destination, max_battery=100):
         try:
             origin_vertex = self._get_vertex_by_id(origin)
             dest_vertex = self._get_vertex_by_id(destination)
-            
+
             if not origin_vertex or not dest_vertex:
                 print(f"DEBUG: No se encontraron vértices - Origin: {origin_vertex}, Dest: {dest_vertex}")
                 return None
-            
-            direct_route = self._dijkstra(origin, destination)
-            if direct_route and self._route_feasible_with_battery(direct_route, max_battery):
-                return Route(direct_route['path'], direct_route['cost'], [], [])
-            
-            # Si la ruta directa no es factible, buscar con paradas de recarga
-            return self._find_route_with_recharge_stops(origin, destination, max_battery)
-            
+
+            # 1. Intentar ruta directa
+            direct_route_info = self._dijkstra(origin, destination)
+            if direct_route_info and self._route_feasible_with_battery(direct_route_info, max_battery):
+                print(f"DEBUG: Ruta directa encontrada de {origin} a {destination}. Costo: {direct_route_info['cost']}")
+                return Route(direct_route_info['path'], direct_route_info['cost'], [], [])
+
+            print(f"DEBUG: Ruta directa no factible o no encontrada. Buscando con recarga para {origin} a {destination}")
+            route_with_recharge = self._find_route_with_recharge_stops(origin, destination, max_battery)
+            if route_with_recharge:
+                print(f"DEBUG: Ruta encontrada con recarga. Costo total: {route_with_recharge.total_cost}")
+                return route_with_recharge
+            else:
+                print(f"DEBUG: No se encontró ninguna ruta válida (directa o con recarga) para {origin} a {destination}")
+                return None
+
         except Exception as e:
             print(f"Error en find_route_with_recharge: {e}")
             return None
     
-    def _get_vertex_by_id(self, node_id):
-        """Obtiene un vértice por su ID"""
-        for vertex in self.graph.vertices():
-            if vertex.element() == node_id:
-                return vertex
-        return None
-    
-    def _dijkstra(self, start, end):
-        """Implementación del algoritmo de Dijkstra mejorada"""
-        try:
-            # Verificar que los nodos existen
-            start_vertex = self._get_vertex_by_id(start)
-            end_vertex = self._get_vertex_by_id(end)
-            
-            if not start_vertex or not end_vertex:
-                return None
-            
-            distances = {}
-            previous = {}
-            
-            # Inicializar distancias
-            for vertex in self.graph.vertices():
-                node_id = vertex.element()
-                distances[node_id] = float('inf')
-                previous[node_id] = None
-            
-            distances[start] = 0
-            unvisited = set(vertex.element() for vertex in self.graph.vertices())
-            
-            while unvisited:
-                # Encontrar el nodo no visitado con menor distancia
-                current = min(unvisited, key=lambda x: distances[x])
-                
-                if distances[current] == float('inf'):
-                    break
-                
-                unvisited.remove(current)
-                
-                if current == end:
-                    # Reconstruir camino
-                    path = []
-                    cost = distances[end]
-                    temp = current
-                    while temp is not None:
-                        path.append(temp)
-                        temp = previous[temp]
-                    path.reverse()
-                    return {'path': path, 'cost': cost}
-                
-                # Examinar vecinos
-                current_vertex = self._get_vertex_by_id(current)
-                if current_vertex:
-                    for edge in self.graph.incident_edges(current_vertex, outgoing=True):
-                        neighbor_vertex = edge.opposite(current_vertex)
-                        neighbor = neighbor_vertex.element()
-                        
-                        if neighbor in unvisited:
-                            edge_weight = edge.element()
-                            new_distance = distances[current] + edge_weight
-                            
-                            if new_distance < distances[neighbor]:
-                                distances[neighbor] = new_distance
-                                previous[neighbor] = current
-            
-            return None
-            
-        except Exception as e:
-            print(f"Error en _dijkstra: {e}")
-            return None
-    
     def _route_feasible_with_battery(self, route_info, max_battery):
         """Verifica si una ruta es factible con la batería disponible"""
-        return route_info['cost'] <= max_battery * 0.8  # Margen de seguridad del 20%
+        return route_info['cost'] <= max_battery * 0.8  
         
     def _find_route_with_recharge_stops(self, origin, destination, max_battery):
         """Encuentra ruta con paradas de recarga"""
         try:
-            # Buscar estaciones de recarga - usar un enfoque más robusto
             recharge_stations = []
             for vertex in self.graph.vertices():
-                # Asumir que las estaciones de recarga tienen cierto patrón en el ID
-                # o agregar un método para identificarlas
                 node_id = vertex.element()
-                # Esto puede necesitar ajuste según tu estructura de datos
                 if 'recharge' in str(node_id).lower() or self._is_recharge_station(vertex):
                     recharge_stations.append(node_id)
             
@@ -127,9 +133,7 @@ class RouteManager:
             best_route = None
             min_cost = float('inf')
             
-            # Probar diferentes combinaciones de estaciones de recarga
             for station in recharge_stations:
-                # Ruta: origen -> estación -> destino
                 route1 = self._dijkstra(origin, station)
                 route2 = self._dijkstra(station, destination)
                 
@@ -151,20 +155,14 @@ class RouteManager:
             return None
     
     def _is_recharge_station(self, vertex):
-        """Determina si un vértice es una estación de recarga"""
-        # Implementar lógica específica según tu estructura de datos
-        # Por ejemplo, si tienes un atributo type en el vértice:
         try:
             return hasattr(vertex, 'type') and vertex.type() == 'recharge'
         except:
-            # Si no hay método type, usar heurística basada en ID
             node_id = str(vertex.element())
             return 'recharge' in node_id.lower() or 'R' in node_id
 
 
 class RouteTracker:
-    """Seguimiento y análisis de rutas utilizadas"""
-    
     def __init__(self):
         self.route_history = []
         self.route_frequency = Counter()
@@ -173,7 +171,6 @@ class RouteTracker:
         self.order_records = []
         
     def track_route(self, route):
-        """Registra una ruta utilizada"""
         if route:
             route_str = " -> ".join(route.path)
             self.route_history.append({
@@ -183,44 +180,35 @@ class RouteTracker:
                 'timestamp': time.time(),
                 'recharge_stops': route.recharge_stops if hasattr(route, 'recharge_stops') else []
             })
-            
-            # Actualizar frecuencias
+    
             self.route_frequency[route_str] += 1
             for node in route.path:
                 self.node_visits[node] += 1
     
     def track_client_order(self, client_id):
-        """Registra un pedido de cliente"""
         self.client_orders[client_id] += 1
     
     def track_order(self, order_id, order):
-        """Registra información de una orden"""
         self.order_records.append((order_id, order))
     
     def get_most_frequent_routes(self, limit=10):
-        """Obtiene las rutas más frecuentes"""
         return self.route_frequency.most_common(limit)
     
     def get_node_visit_stats(self, limit=20):
-        """Obtiene estadísticas de visitas a nodos"""
         return self.node_visits.most_common(limit)
     
     def get_client_stats(self):
-        """Obtiene estadísticas de clientes"""
         return sorted([(client_id, orders) for client_id, orders in self.client_orders.items()], 
                      key=lambda x: x[1], reverse=True)
     
     def get_order_stats(self):
-        """Obtiene estadísticas de órdenes"""
         return self.order_records
     
     def get_route_history(self):
-        """Obtiene el historial completo de rutas"""
         return self.route_history
 
 
 class RouteOptimizer:
-    """Optimizador de rutas y análisis de patrones"""
     
     def __init__(self, route_tracker, route_manager):
         self.tracker = route_tracker
