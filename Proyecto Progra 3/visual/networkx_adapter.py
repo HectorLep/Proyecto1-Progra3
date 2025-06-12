@@ -2,92 +2,92 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from model.graph import Graph
 
-def graph_to_networkx(graph):
-    """Convert custom Graph to NetworkX DiGraph"""
+def grafo_a_networkx(grafo):
+    """Convertir Grafo personalizado a NetworkX DiGraph"""
     G = nx.DiGraph()
     
-    # Add nodes with their types
-    for vertex in graph.vertices():
-        node_id = vertex.element()
-        node_type = vertex.type()
-        G.add_node(node_id, type=node_type)
+    # Agregar nodos con sus tipos
+    for vertice in grafo.vertices():
+        id_nodo = vertice.element()
+        tipo_nodo = vertice.type()
+        G.add_node(id_nodo, type=tipo_nodo)
     
-    # Add edges
-    for edge in graph.edges():
-        u, v = edge.endpoints()
-        weight = edge.element()
-        G.add_edge(u.element(), v.element(), weight=weight)
+    # Agregar aristas
+    for arista in grafo.edges():
+        u, v = arista.endpoints()
+        peso = arista.element()
+        G.add_edge(u.element(), v.element(), weight=peso)
     
     return G
 
-def create_network_visualization(graph, highlighted_route=None, figsize=(12, 10)):
-    """Create a comprehensive network visualization with enhanced features"""
-    G = graph_to_networkx(graph)
+def crear_visualizacion_red(grafo, ruta_destacada=None, figsize=(12, 10)):
+    """Crear una visualización completa de la red con características mejoradas"""
+    G = grafo_a_networkx(grafo)
     
-    # Use different layout algorithms based on graph size
-    num_nodes = len(G.nodes())
-    if num_nodes < 20:
+    # Usar diferentes algoritmos de diseño basados en el tamaño del grafo
+    num_nodos = len(G.nodes())
+    if num_nodos < 20:
         pos = nx.spring_layout(G, k=1.5, iterations=100, seed=42)
-    elif num_nodes < 50:
+    elif num_nodos < 50:
         pos = nx.kamada_kawai_layout(G)
     else:
         pos = nx.spring_layout(G, k=0.8, iterations=50, seed=42)
     
-    # Create the figure with larger size
+    # Crear la figura con tamaño más grande
     plt.figure(figsize=figsize)
     
-    # Color nodes according to their type with enhanced colors
-    node_colors = []
-    node_sizes = []
-    for node in G.nodes():
-        node_type = G.nodes[node].get('type', 'client')
-        if node_type == 'warehouse':
-            node_colors.append('#8B4513')  # Brown
-            node_sizes.append(800)  # Larger for warehouses
-        elif node_type == 'recharge':
-            node_colors.append('#FFA500')  # Orange
-            node_sizes.append(600)  # Medium for recharge stations
+    # Colorear nodos según su tipo con colores mejorados
+    colores_nodos = []
+    tamaños_nodos = []
+    for nodo in G.nodes():
+        tipo_nodo = G.nodes[nodo].get('type', 'client')
+        if tipo_nodo == 'warehouse':
+            colores_nodos.append('#8B4513')  # Marrón
+            tamaños_nodos.append(800)  # Más grande para almacenes
+        elif tipo_nodo == 'recharge':
+            colores_nodos.append('#FFA500')  # Naranja
+            tamaños_nodos.append(600)  # Mediano para estaciones de recarga
         else:  # client
-            node_colors.append('#32CD32')  # Green
-            node_sizes.append(400)  # Smaller for clients
+            colores_nodos.append('#32CD32')  # Verde
+            tamaños_nodos.append(400)  # Más pequeño para clientes
     
-    # Draw the nodes with enhanced styling
+    # Dibujar los nodos con estilo mejorado
     nx.draw_networkx_nodes(G, pos, 
-                          node_color=node_colors, 
-                          node_size=node_sizes,
+                          node_color=colores_nodos, 
+                          node_size=tamaños_nodos,
                           alpha=0.8,
                           edgecolors='black',
                           linewidths=1.5)
     
-    # Prepare edge colors and widths
-    edge_colors = []
-    edge_widths = []
+    # Preparar colores y anchos de aristas
+    colores_aristas = []
+    anchos_aristas = []
     
-    for edge in G.edges():
-        edge_colors.append('#888888')  # Default gray
-        edge_widths.append(1.0)  # Default width
+    for arista in G.edges():
+        colores_aristas.append('#888888')  # Gris por defecto
+        anchos_aristas.append(1.0)  # Ancho por defecto
     
-    # Highlight the route in red if provided
-    if highlighted_route:
-        route_edges = [(highlighted_route[i], highlighted_route[i+1]) 
-                      for i in range(len(highlighted_route)-1)]
+    # Destacar la ruta en rojo si se proporciona
+    if ruta_destacada:
+        aristas_ruta = [(ruta_destacada[i], ruta_destacada[i+1]) 
+                       for i in range(len(ruta_destacada)-1)]
         
-        for i, edge in enumerate(G.edges()):
-            if edge in route_edges or (edge[1], edge[0]) in route_edges:
-                edge_colors[i] = '#FF0000'  # Red for highlighted route
-                edge_widths[i] = 3.0  # Thicker for highlighted route
+        for i, arista in enumerate(G.edges()):
+            if arista in aristas_ruta or (arista[1], arista[0]) in aristas_ruta:
+                colores_aristas[i] = '#FF0000'  # Rojo para ruta destacada
+                anchos_aristas[i] = 3.0  # Más grueso para ruta destacada
     
-    # Draw edges with enhanced styling
+    # Dibujar aristas con estilo mejorado
     nx.draw_networkx_edges(G, pos, 
-                          edge_color=edge_colors, 
-                          width=edge_widths,
+                          edge_color=colores_aristas, 
+                          width=anchos_aristas,
                           arrows=True, 
                           arrowsize=20,
                           arrowstyle='->', 
                           alpha=0.7,
                           connectionstyle="arc3,rad=0.1")
     
-    # Draw node labels with better formatting
+    # Dibujar etiquetas de nodos con mejor formato
     nx.draw_networkx_labels(G, pos, 
                            font_size=9, 
                            font_weight='bold',
@@ -96,46 +96,46 @@ def create_network_visualization(graph, highlighted_route=None, figsize=(12, 10)
                                    facecolor='black', 
                                    alpha=0.7))
     
-    # Draw edge labels (weights) with improved positioning
-    edge_labels = nx.get_edge_attributes(G, 'weight')
-    # Format edge labels to show only 2 decimal places
-    formatted_edge_labels = {k: f"{v:.1f}" for k, v in edge_labels.items()}
+    # Dibujar etiquetas de aristas (pesos) con posicionamiento mejorado
+    etiquetas_aristas = nx.get_edge_attributes(G, 'weight')
+    # Formatear etiquetas de aristas para mostrar solo 2 decimales
+    etiquetas_formateadas = {k: f"{v:.1f}" for k, v in etiquetas_aristas.items()}
     
     nx.draw_networkx_edge_labels(G, pos, 
-                                edge_labels=formatted_edge_labels, 
+                                edge_labels=etiquetas_formateadas, 
                                 font_size=7,
                                 font_color='darkblue',
                                 bbox=dict(boxstyle="round,pad=0.2", 
                                         facecolor='white', 
                                         alpha=0.8))
     
-    # Enhanced title
-    title = "Drone Delivery Network"
-    if highlighted_route:
-        title += f" - Route: {' → '.join(highlighted_route)}"
-    plt.title(title, fontsize=16, fontweight='bold', pad=20)
+    # Título mejorado
+    titulo = "Red de Entrega por Drones"
+    if ruta_destacada:
+        titulo += f" - Ruta: {' → '.join(ruta_destacada)}"
+    plt.title(titulo, fontsize=16, fontweight='bold', pad=20)
     
-    # Remove axes
+    # Remover ejes
     plt.axis('off')
     
-    # Create enhanced legend
+    # Crear leyenda mejorada
     from matplotlib.lines import Line2D
-    legend_elements = [
-        Line2D([0], [0], marker='o', color='w', label='Warehouse', 
+    elementos_leyenda = [
+        Line2D([0], [0], marker='o', color='w', label='Almacén', 
                markerfacecolor='#8B4513', markersize=12, markeredgecolor='black'),
-        Line2D([0], [0], marker='o', color='w', label='Recharge Station', 
+        Line2D([0], [0], marker='o', color='w', label='Estación de Recarga', 
                markerfacecolor='#FFA500', markersize=10, markeredgecolor='black'),
-        Line2D([0], [0], marker='o', color='w', label='Client', 
+        Line2D([0], [0], marker='o', color='w', label='Cliente', 
                markerfacecolor='#32CD32', markersize=8, markeredgecolor='black'),
-        Line2D([0], [0], color='#888888', label='Regular Route', linewidth=2),
+        Line2D([0], [0], color='#888888', label='Ruta Regular', linewidth=2),
     ]
     
-    if highlighted_route:
-        legend_elements.append(
-            Line2D([0], [0], color='#FF0000', label='Highlighted Route', linewidth=3)
+    if ruta_destacada:
+        elementos_leyenda.append(
+            Line2D([0], [0], color='#FF0000', label='Ruta Destacada', linewidth=3)
         )
     
-    plt.legend(handles=legend_elements, 
+    plt.legend(handles=elementos_leyenda, 
               loc='upper left', 
               bbox_to_anchor=(0.02, 0.98),
               fontsize=10,
@@ -143,57 +143,57 @@ def create_network_visualization(graph, highlighted_route=None, figsize=(12, 10)
               fancybox=True,
               shadow=True)
     
-    # Add network statistics as text
-    stats_text = f"Nodes: {len(G.nodes())} | Edges: {len(G.edges())}"
-    if highlighted_route:
-        route_cost = sum(G[highlighted_route[i]][highlighted_route[i+1]]['weight'] 
-                        for i in range(len(highlighted_route)-1))
-        stats_text += f" | Route Cost: {route_cost:.2f}"
+    # Agregar estadísticas de la red como texto
+    texto_estadisticas = f"Nodos: {len(G.nodes())} | Aristas: {len(G.edges())}"
+    if ruta_destacada:
+        costo_ruta = sum(G[ruta_destacada[i]][ruta_destacada[i+1]]['weight'] 
+                        for i in range(len(ruta_destacada)-1))
+        texto_estadisticas += f" | Costo de Ruta: {costo_ruta:.2f}"
     
-    plt.figtext(0.02, 0.02, stats_text, fontsize=10, 
+    plt.figtext(0.02, 0.02, texto_estadisticas, fontsize=10, 
                bbox=dict(boxstyle="round,pad=0.5", facecolor='lightgray', alpha=0.8))
     
     plt.tight_layout()
     return plt.gcf()
 
-def create_route_comparison_visualization(graph, routes_list, route_labels=None):
-    """Create a visualization comparing multiple routes"""
-    G = graph_to_networkx(graph)
+def crear_visualizacion_comparacion_rutas(grafo, lista_rutas, etiquetas_rutas=None):
+    """Crear una visualización comparando múltiples rutas"""
+    G = grafo_a_networkx(grafo)
     pos = nx.spring_layout(G, k=1.0, iterations=100, seed=42)
     
-    # Create subplots for each route
-    num_routes = len(routes_list)
-    fig, axes = plt.subplots(1, num_routes, figsize=(6*num_routes, 6))
+    # Crear subgráficos para cada ruta
+    num_rutas = len(lista_rutas)
+    fig, axes = plt.subplots(1, num_rutas, figsize=(6*num_rutas, 6))
     
-    if num_routes == 1:
+    if num_rutas == 1:
         axes = [axes]
     
-    colors = ['#FF0000', '#0000FF', '#00FF00', '#FF00FF', '#FFFF00']
+    colores = ['#FF0000', '#0000FF', '#00FF00', '#FF00FF', '#FFFF00']
     
-    for idx, (route, ax) in enumerate(zip(routes_list, axes)):
-        # Color nodes according to their type
-        node_colors = []
-        node_sizes = []
-        for node in G.nodes():
-            node_type = G.nodes[node].get('type', 'client')
-            if node_type == 'warehouse':
-                node_colors.append('#8B4513')
-                node_sizes.append(600)
-            elif node_type == 'recharge':
-                node_colors.append('#FFA500')
-                node_sizes.append(450)
+    for idx, (ruta, ax) in enumerate(zip(lista_rutas, axes)):
+        # Colorear nodos según su tipo
+        colores_nodos = []
+        tamaños_nodos = []
+        for nodo in G.nodes():
+            tipo_nodo = G.nodes[nodo].get('type', 'client')
+            if tipo_nodo == 'warehouse':
+                colores_nodos.append('#8B4513')
+                tamaños_nodos.append(600)
+            elif tipo_nodo == 'recharge':
+                colores_nodos.append('#FFA500')
+                tamaños_nodos.append(450)
             else:
-                node_colors.append('#32CD32')
-                node_sizes.append(300)
+                colores_nodos.append('#32CD32')
+                tamaños_nodos.append(300)
         
-        # Draw nodes
+        # Dibujar nodos
         nx.draw_networkx_nodes(G, pos, 
-                              node_color=node_colors, 
-                              node_size=node_sizes,
+                              node_color=colores_nodos, 
+                              node_size=tamaños_nodos,
                               alpha=0.8,
                               ax=ax)
         
-        # Draw all edges in gray
+        # Dibujar todas las aristas en gris
         nx.draw_networkx_edges(G, pos, 
                               edge_color='#CCCCCC', 
                               arrows=True, 
@@ -201,177 +201,177 @@ def create_route_comparison_visualization(graph, routes_list, route_labels=None)
                               alpha=0.5,
                               ax=ax)
         
-        # Highlight current route
-        if route:
-            route_edges = [(route[i], route[i+1]) for i in range(len(route)-1)]
+        # Destacar ruta actual
+        if ruta:
+            aristas_ruta = [(ruta[i], ruta[i+1]) for i in range(len(ruta)-1)]
             nx.draw_networkx_edges(G, pos,
-                                  edgelist=route_edges,
-                                  edge_color=colors[idx % len(colors)],
+                                  edgelist=aristas_ruta,
+                                  edge_color=colores[idx % len(colores)],
                                   width=3.0,
                                   arrows=True,
                                   arrowsize=20,
                                   ax=ax)
         
-        # Draw labels
+        # Dibujar etiquetas
         nx.draw_networkx_labels(G, pos, font_size=8, font_weight='bold', ax=ax)
         
-        # Set title
-        title = route_labels[idx] if route_labels else f"Route {idx+1}"
-        if route:
-            route_cost = sum(G[route[i]][route[i+1]]['weight'] 
-                           for i in range(len(route)-1))
-            title += f" (Cost: {route_cost:.2f})"
-        ax.set_title(title, fontsize=12, fontweight='bold')
+        # Establecer título
+        titulo = etiquetas_rutas[idx] if etiquetas_rutas else f"Ruta {idx+1}"
+        if ruta:
+            costo_ruta = sum(G[ruta[i]][ruta[i+1]]['weight'] 
+                           for i in range(len(ruta)-1))
+            titulo += f" (Costo: {costo_ruta:.2f})"
+        ax.set_title(titulo, fontsize=12, fontweight='bold')
         ax.axis('off')
     
     plt.tight_layout()
     return fig
 
-def analyze_network_properties(graph):
-    """Analyze and return network properties"""
-    G = graph_to_networkx(graph)
+def analizar_propiedades_red(grafo):
+    """Analizar y devolver propiedades de la red"""
+    G = grafo_a_networkx(grafo)
     
-    properties = {
-        'num_nodes': len(G.nodes()),
-        'num_edges': len(G.edges()),
-        'density': nx.density(G),
-        'is_connected': nx.is_weakly_connected(G),
-        'num_components': nx.number_weakly_connected_components(G),
-        'average_degree': sum(dict(G.degree()).values()) / len(G.nodes()) if len(G.nodes()) > 0 else 0,
-        'clustering_coefficient': nx.average_clustering(G.to_undirected()),
-        'diameter': nx.diameter(G.to_undirected()) if nx.is_connected(G.to_undirected()) else 'N/A (disconnected)',
-        'node_types': {
+    propiedades = {
+        'num_nodos': len(G.nodes()),
+        'num_aristas': len(G.edges()),
+        'densidad': nx.density(G),
+        'esta_conectado': nx.is_weakly_connected(G),
+        'num_componentes': nx.number_weakly_connected_components(G),
+        'grado_promedio': sum(dict(G.degree()).values()) / len(G.nodes()) if len(G.nodes()) > 0 else 0,
+        'coeficiente_clustering': nx.average_clustering(G.to_undirected()),
+        'diametro': nx.diameter(G.to_undirected()) if nx.is_connected(G.to_undirected()) else 'N/A (desconectado)',
+        'tipos_nodos': {
             'warehouse': len([n for n, d in G.nodes(data=True) if d.get('type') == 'warehouse']),
             'recharge': len([n for n, d in G.nodes(data=True) if d.get('type') == 'recharge']),
             'client': len([n for n, d in G.nodes(data=True) if d.get('type') == 'client'])
         }
     }
     
-    return properties
+    return propiedades
 
-def create_network_analysis_report(graph):
-    """Generate a comprehensive network analysis report"""
-    properties = analyze_network_properties(graph)
+def crear_reporte_analisis_red(grafo):
+    """Generar un reporte completo de análisis de la red"""
+    propiedades = analizar_propiedades_red(grafo)
     
-    report = f"""
-    📊 NETWORK ANALYSIS REPORT
-    ========================
+    reporte = f"""
+    📊 REPORTE DE ANÁLISIS DE RED
+    ============================
     
-    🔢 Basic Statistics:
-    - Total Nodes: {properties['num_nodes']}
-    - Total Edges: {properties['num_edges']}
-    - Graph Density: {properties['density']:.3f}
-    - Average Degree: {properties['average_degree']:.2f}
+    🔢 Estadísticas Básicas:
+    - Total de Nodos: {propiedades['num_nodos']}
+    - Total de Aristas: {propiedades['num_aristas']}
+    - Densidad del Grafo: {propiedades['densidad']:.3f}
+    - Grado Promedio: {propiedades['grado_promedio']:.2f}
     
-    🔗 Connectivity:
-    - Is Connected: {properties['is_connected']}
-    - Number of Components: {properties['num_components']}
-    - Clustering Coefficient: {properties['clustering_coefficient']:.3f}
-    - Diameter: {properties['diameter']}
+    🔗 Conectividad:
+    - Está Conectado: {propiedades['esta_conectado']}
+    - Número de Componentes: {propiedades['num_componentes']}
+    - Coeficiente de Clustering: {propiedades['coeficiente_clustering']:.3f}
+    - Diámetro: {propiedades['diametro']}
     
-    🏢 Node Distribution:
-    - Warehouse Nodes: {properties['node_types']['warehouse']}
-    - Recharge Stations: {properties['node_types']['recharge']}
-    - Client Nodes: {properties['node_types']['client']}
+    🏢 Distribución de Nodos:
+    - Nodos Almacén: {propiedades['tipos_nodos']['warehouse']}
+    - Estaciones de Recarga: {propiedades['tipos_nodos']['recharge']}
+    - Nodos Cliente: {propiedades['tipos_nodos']['client']}
     
-    📈 Ratios:
-    - Warehouses: {properties['node_types']['warehouse']/properties['num_nodes']*100:.1f}%
-    - Recharge Stations: {properties['node_types']['recharge']/properties['num_nodes']*100:.1f}%
-    - Clients: {properties['node_types']['client']/properties['num_nodes']*100:.1f}%
+    📈 Proporciones:
+    - Almacenes: {propiedades['tipos_nodos']['warehouse']/propiedades['num_nodos']*100:.1f}%
+    - Estaciones de Recarga: {propiedades['tipos_nodos']['recharge']/propiedades['num_nodos']*100:.1f}%
+    - Clientes: {propiedades['tipos_nodos']['client']/propiedades['num_nodos']*100:.1f}%
     """
     
-    return report
+    return reporte
 
-def get_shortest_paths_analysis(graph, source_nodes=None):
-    """Analyze shortest paths from source nodes to all other nodes"""
-    G = graph_to_networkx(graph)
+def obtener_analisis_rutas_mas_cortas(grafo, nodos_origen=None):
+    """Analizar rutas más cortas desde nodos origen hacia todos los otros nodos"""
+    G = grafo_a_networkx(grafo)
     
-    if source_nodes is None:
-        # Use all warehouse nodes as sources
-        source_nodes = [n for n, d in G.nodes(data=True) if d.get('type') == 'warehouse']
+    if nodos_origen is None:
+        # Usar todos los nodos almacén como orígenes
+        nodos_origen = [n for n, d in G.nodes(data=True) if d.get('type') == 'warehouse']
     
-    analysis = {}
+    analisis = {}
     
-    for source in source_nodes:
+    for origen in nodos_origen:
         try:
-            # Calculate shortest paths from source to all other nodes
-            lengths = nx.single_source_dijkstra_path_length(G, source, weight='weight')
-            paths = nx.single_source_dijkstra_path(G, source, weight='weight')
+            # Calcular rutas más cortas desde origen hacia todos los otros nodos
+            longitudes = nx.single_source_dijkstra_path_length(G, origen, weight='weight')
+            rutas = nx.single_source_dijkstra_path(G, origen, weight='weight')
             
-            analysis[source] = {
-                'reachable_nodes': len(lengths),
-                'total_nodes': len(G.nodes()),
-                'avg_path_length': sum(lengths.values()) / len(lengths) if lengths else 0,
-                'max_path_length': max(lengths.values()) if lengths else 0,
-                'paths_to_clients': {node: {'length': length, 'path': paths[node]} 
-                                   for node, length in lengths.items() 
-                                   if G.nodes[node].get('type') == 'client'}
+            analisis[origen] = {
+                'nodos_alcanzables': len(longitudes),
+                'total_nodos': len(G.nodes()),
+                'longitud_promedio_ruta': sum(longitudes.values()) / len(longitudes) if longitudes else 0,
+                'longitud_maxima_ruta': max(longitudes.values()) if longitudes else 0,
+                'rutas_a_clientes': {nodo: {'longitud': longitud, 'ruta': rutas[nodo]} 
+                                   for nodo, longitud in longitudes.items() 
+                                   if G.nodes[nodo].get('type') == 'client'}
             }
         except nx.NetworkXNoPath:
-            analysis[source] = {
-                'reachable_nodes': 0,
-                'total_nodes': len(G.nodes()),
-                'avg_path_length': float('inf'),
-                'max_path_length': float('inf'),
-                'paths_to_clients': {}
+            analisis[origen] = {
+                'nodos_alcanzables': 0,
+                'total_nodos': len(G.nodes()),
+                'longitud_promedio_ruta': float('inf'),
+                'longitud_maxima_ruta': float('inf'),
+                'rutas_a_clientes': {}
             }
     
-    return analysis
+    return analisis
 
-def create_degree_distribution_plot(graph):
-    """Create a degree distribution plot"""
-    G = graph_to_networkx(graph)
+def crear_grafico_distribucion_grados(grafo):
+    """Crear un gráfico de distribución de grados"""
+    G = grafo_a_networkx(grafo)
     
-    # Calculate degree distribution
-    degrees = [G.degree(n) for n in G.nodes()]
+    # Calcular distribución de grados
+    grados = [G.degree(n) for n in G.nodes()]
     
     plt.figure(figsize=(10, 6))
-    plt.hist(degrees, bins=max(1, len(set(degrees))), color='#45b7d1', alpha=0.7, edgecolor='black')
-    plt.title('Node Degree Distribution', fontsize=14, fontweight='bold')
-    plt.xlabel('Degree', fontsize=12)
-    plt.ylabel('Frequency', fontsize=12)
+    plt.hist(grados, bins=max(1, len(set(grados))), color='#45b7d1', alpha=0.7, edgecolor='black')
+    plt.title('Distribución de Grados de Nodos', fontsize=14, fontweight='bold')
+    plt.xlabel('Grado', fontsize=12)
+    plt.ylabel('Frecuencia', fontsize=12)
     plt.grid(True, alpha=0.3)
     
-    # Add statistics text
-    avg_degree = sum(degrees) / len(degrees) if degrees else 0
-    max_degree = max(degrees) if degrees else 0
-    min_degree = min(degrees) if degrees else 0
+    # Agregar texto de estadísticas
+    grado_promedio = sum(grados) / len(grados) if grados else 0
+    grado_maximo = max(grados) if grados else 0
+    grado_minimo = min(grados) if grados else 0
     
-    stats_text = f'Avg: {avg_degree:.2f}, Max: {max_degree}, Min: {min_degree}'
-    plt.text(0.7, 0.9, stats_text, transform=plt.gca().transAxes, 
+    texto_estadisticas = f'Promedio: {grado_promedio:.2f}, Máx: {grado_maximo}, Mín: {grado_minimo}'
+    plt.text(0.7, 0.9, texto_estadisticas, transform=plt.gca().transAxes, 
              bbox=dict(boxstyle="round,pad=0.3", facecolor='lightgray', alpha=0.8))
     
     plt.tight_layout()
     return plt.gcf()
 
-def create_node_type_distribution_plot(graph):
-    """Create a plot showing the distribution of node types"""
-    G = graph_to_networkx(graph)
+def crear_grafico_distribucion_tipos_nodos(grafo):
+    """Crear un gráfico mostrando la distribución de tipos de nodos"""
+    G = grafo_a_networkx(grafo)
     
-    # Count node types
-    type_counts = {'warehouse': 0, 'recharge': 0, 'client': 0}
-    for node, data in G.nodes(data=True):
-        node_type = data.get('type', 'client')
-        type_counts[node_type] += 1
+    # Contar tipos de nodos
+    conteos_tipos = {'warehouse': 0, 'recharge': 0, 'client': 0}
+    for nodo, datos in G.nodes(data=True):
+        tipo_nodo = datos.get('type', 'client')
+        conteos_tipos[tipo_nodo] += 1
     
-    # Create pie chart
+    # Crear gráfico de pastel
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
     
-    # Pie chart
-    colors = ['#8B4513', '#FFA500', '#32CD32']
-    labels = ['Warehouse', 'Recharge', 'Client']
-    sizes = [type_counts['warehouse'], type_counts['recharge'], type_counts['client']]
+    # Gráfico de pastel
+    colores = ['#8B4513', '#FFA500', '#32CD32']
+    etiquetas = ['Almacén', 'Recarga', 'Cliente']
+    tamaños = [conteos_tipos['warehouse'], conteos_tipos['recharge'], conteos_tipos['client']]
     
-    ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
-    ax1.set_title('Node Type Distribution', fontsize=14, fontweight='bold')
+    ax1.pie(tamaños, labels=etiquetas, colors=colores, autopct='%1.1f%%', startangle=90)
+    ax1.set_title('Distribución de Tipos de Nodos', fontsize=14, fontweight='bold')
     
-    # Bar chart
-    ax2.bar(labels, sizes, color=colors, alpha=0.7, edgecolor='black')
-    ax2.set_title('Node Type Counts', fontsize=14, fontweight='bold')
-    ax2.set_ylabel('Count')
+    # Gráfico de barras
+    ax2.bar(etiquetas, tamaños, color=colores, alpha=0.7, edgecolor='black')
+    ax2.set_title('Conteo de Tipos de Nodos', fontsize=14, fontweight='bold')
+    ax2.set_ylabel('Cantidad')
     
-    # Add value labels on bars
-    for i, v in enumerate(sizes):
+    # Agregar etiquetas de valor en las barras
+    for i, v in enumerate(tamaños):
         ax2.text(i, v + 0.1, str(v), ha='center', va='bottom', fontweight='bold')
     
     plt.tight_layout()
