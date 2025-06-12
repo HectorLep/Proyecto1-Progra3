@@ -114,11 +114,9 @@ class RouteManager:
             return None
     
     def _route_feasible_with_battery(self, route_info, max_battery):
-        """Verifica si una ruta es factible con la batería disponible"""
         return route_info['cost'] <= max_battery * 0.8  
         
     def _find_route_with_recharge_stops(self, origin, destination, max_battery):
-        """Encuentra ruta con paradas de recarga"""
         try:
             recharge_stations = []
             for vertex in self.graph.vertices():
@@ -216,7 +214,6 @@ class RouteOptimizer:
         self.optimization_reports = []
         
     def analyze_route_patterns(self):
-        """Analiza patrones en las rutas utilizadas"""
         patterns = []
         
         # Analizar frecuencia de rutas
