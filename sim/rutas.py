@@ -114,7 +114,7 @@ class RouteManager:
             return None
     
     def _route_feasible_with_battery(self, route_info, max_battery):
-        return route_info['cost'] <= max_battery * 0.8  
+        return route_info['cost'] <= max_battery * 0.95  
         
     def _find_route_with_recharge_stops(self, origin, destination, max_battery):
         try:
