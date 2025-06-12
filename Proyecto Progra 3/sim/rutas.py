@@ -1,269 +1,442 @@
-from model.graph import Graph
+import random
+import time
+from collections import defaultdict, Counter
 from domain.cliente import Client
 from domain.orden import Order
 from domain.ruta import Route
-from tda.mapa_hash import HashMap
-from tda.avl import AVLNode, avl_insert, avl_search, avl_inorder, avl_to_visualization_data
-from collections import deque
-import heapq
-import random
-
-# # Diccionario para mapear IDs de nodos a sus nombres descriptivos
-# node_names = {
-#     'A': 'Almacen_A',
-#     'B': 'Estacion_B',
-#     'C': 'Client_C',
-#     'D': 'Client_D',
-#     'R1': 'Recarga_R1'
-# }
-# 
-# node_types = {
-#     'A': 'warehouse',
-#     'B': 'recharge',
-#     'C': 'client',
-#     'D': 'client',
-#     'R1': 'recharge'
-# }
 
 class RouteManager:
+    """Gestor principal de rutas para el sistema de drones"""
+    
     def __init__(self, graph):
         self.graph = graph
-        self.vertex_types = {v.element(): v.type() for v in self.graph.vertices()}
-
-
-    def find_route_with_recharge(self, origin_id, destination_id, battery_limit=50):
-        """BFS modificado que considera el costo acumulado usando heap."""
-        heap = [(0, origin_id, [origin_id], battery_limit, [], [[origin_id]])]
-        visited = {}
-        vertex_map = {v.element(): v for v in self.graph.vertices()}
-
-        while heap:
-            total_cost, node_id, path, battery, recharge_stops, segments = heapq.heappop(heap)
+        self.route_cache = {}
+        self.recharge_threshold = 50  # Umbral de batería para buscar recarga
+        
+    def find_route_with_recharge(self, origin, destination, max_battery=100):
+        try:
+            origin_vertex = self._get_vertex_by_id(origin)
+            dest_vertex = self._get_vertex_by_id(destination)
             
-            state = (node_id, battery)
-            if state in visited and visited[state] <= total_cost:
-                continue
-            visited[state] = total_cost
+            if not origin_vertex or not dest_vertex:
+                print(f"DEBUG: No se encontraron vértices - Origin: {origin_vertex}, Dest: {dest_vertex}")
+                return None
             
-            if node_id == destination_id:
-                final_recharge_stops = [n for n in path if self.vertex_types.get(n) == 'recharge']
-                return Route(path, total_cost, final_recharge_stops, segments)
-
-            current_vertex = vertex_map[node_id]
-            for edge in self.graph.incident_edges(current_vertex, outgoing=True):
-                next_vertex = edge.opposite(current_vertex)
-                next_node_id = next_vertex.element()
-                weight = edge.element()
-                new_battery = battery - weight
-
-                if new_battery >= 0:
-                    new_state = (next_node_id, new_battery)
-                    new_cost = total_cost + weight
-                    
-                    if new_state not in visited or visited[new_state] > new_cost:
-                        new_path = path + [next_node_id]
-                        new_segments = [seg[:] for seg in segments]
-                        new_segments[-1].append(next_node_id)
-                        heapq.heappush(heap, (new_cost, next_node_id, new_path, new_battery, recharge_stops, new_segments))
-                
-                else:
-                    recharge_node = self.find_nearest_recharge(node_id)
-                    if recharge_node and recharge_node != node_id:
-                        recharge_path, recharge_cost = self.get_path_to_recharge(node_id, recharge_node)
-                        if recharge_path:
-                            new_path = path + recharge_path[1:]
-                            new_recharge_stops = recharge_stops + [recharge_node]
-                            new_segments = [seg[:] for seg in segments] + [[recharge_node]]
-                            new_total_cost = total_cost + recharge_cost
-                            new_state = (recharge_node, battery_limit)
-                            
-                            if new_state not in visited or visited[new_state] > new_total_cost:
-                                heapq.heappush(heap, (new_total_cost, recharge_node, new_path, battery_limit, new_recharge_stops, new_segments))
-        
-        return None
-
-    def find_nearest_recharge(self, node_id):
-        """Find the nearest recharge station using BFS."""
-        if self.vertex_types.get(node_id) == 'recharge':
-            return node_id
-        
-        vertex_map = {v.element(): v for v in self.graph.vertices()}
-        queue = deque([(node_id, 0)])
-        visited = set([node_id])
-        
-        while queue:
-            curr, dist = queue.popleft()
-            if self.vertex_types.get(curr) == 'recharge':
-                return curr
+            direct_route = self._dijkstra(origin, destination)
+            if direct_route and self._route_feasible_with_battery(direct_route, max_battery):
+                return Route(direct_route['path'], direct_route['cost'], [], [])
             
-            current_vertex = vertex_map[curr]
-            for edge in self.graph.incident_edges(current_vertex, outgoing=True):
-                next_vertex = edge.opposite(current_vertex)
-                next_node_id = next_vertex.element()
-                if next_node_id not in visited:
-                    visited.add(next_node_id)
-                    queue.append((next_node_id, dist + edge.element()))
-        
-        return None
-
-
-    def get_path_to_recharge(self, start, recharge):
-        """Find the shortest path to a recharge station."""
-        vertex_map = {v.element(): v for v in self.graph.vertices()}
-        start_vertex = vertex_map[start]  # Obtener el objeto Vertex
-        recharge_vertex = vertex_map[recharge]  # Obtener el objeto Vertex
-        queue = deque([(start_vertex, [start], 0)])
-        visited = set([start])
-        
-        while queue:
-            node, path, cost = queue.popleft()
-            if node.element() == recharge_vertex.element():
-                return path, cost
-                
-            for edge in self.graph.incident_edges(node, outgoing=True):
-                next_vertex = edge.opposite(node)
-                next_node_id = next_vertex.element()
-                if next_node_id not in visited:
-                    visited.add(next_node_id)
-                    queue.append((next_vertex, path + [next_node_id], cost + edge.element()))
-        return None, 0
+            # Si la ruta directa no es factible, buscar con paradas de recarga
+            return self._find_route_with_recharge_stops(origin, destination, max_battery)
+            
+        except Exception as e:
+            print(f"Error en find_route_with_recharge: {e}")
+            return None
     
+    def _get_vertex_by_id(self, node_id):
+        """Obtiene un vértice por su ID"""
+        for vertex in self.graph.vertices():
+            if vertex.element() == node_id:
+                return vertex
+        return None
+    
+    def _dijkstra(self, start, end):
+        """Implementación del algoritmo de Dijkstra mejorada"""
+        try:
+            # Verificar que los nodos existen
+            start_vertex = self._get_vertex_by_id(start)
+            end_vertex = self._get_vertex_by_id(end)
+            
+            if not start_vertex or not end_vertex:
+                return None
+            
+            distances = {}
+            previous = {}
+            
+            # Inicializar distancias
+            for vertex in self.graph.vertices():
+                node_id = vertex.element()
+                distances[node_id] = float('inf')
+                previous[node_id] = None
+            
+            distances[start] = 0
+            unvisited = set(vertex.element() for vertex in self.graph.vertices())
+            
+            while unvisited:
+                # Encontrar el nodo no visitado con menor distancia
+                current = min(unvisited, key=lambda x: distances[x])
+                
+                if distances[current] == float('inf'):
+                    break
+                
+                unvisited.remove(current)
+                
+                if current == end:
+                    # Reconstruir camino
+                    path = []
+                    cost = distances[end]
+                    temp = current
+                    while temp is not None:
+                        path.append(temp)
+                        temp = previous[temp]
+                    path.reverse()
+                    return {'path': path, 'cost': cost}
+                
+                # Examinar vecinos
+                current_vertex = self._get_vertex_by_id(current)
+                if current_vertex:
+                    for edge in self.graph.incident_edges(current_vertex, outgoing=True):
+                        neighbor_vertex = edge.opposite(current_vertex)
+                        neighbor = neighbor_vertex.element()
+                        
+                        if neighbor in unvisited:
+                            edge_weight = edge.element()
+                            new_distance = distances[current] + edge_weight
+                            
+                            if new_distance < distances[neighbor]:
+                                distances[neighbor] = new_distance
+                                previous[neighbor] = current
+            
+            return None
+            
+        except Exception as e:
+            print(f"Error en _dijkstra: {e}")
+            return None
+    
+    def _route_feasible_with_battery(self, route_info, max_battery):
+        """Verifica si una ruta es factible con la batería disponible"""
+        return route_info['cost'] <= max_battery * 0.8  # Margen de seguridad del 20%
+        
+    def _find_route_with_recharge_stops(self, origin, destination, max_battery):
+        """Encuentra ruta con paradas de recarga"""
+        try:
+            # Buscar estaciones de recarga - usar un enfoque más robusto
+            recharge_stations = []
+            for vertex in self.graph.vertices():
+                # Asumir que las estaciones de recarga tienen cierto patrón en el ID
+                # o agregar un método para identificarlas
+                node_id = vertex.element()
+                # Esto puede necesitar ajuste según tu estructura de datos
+                if 'recharge' in str(node_id).lower() or self._is_recharge_station(vertex):
+                    recharge_stations.append(node_id)
+            
+            if not recharge_stations:
+                print("DEBUG: No se encontraron estaciones de recarga")
+                return None
+            
+            best_route = None
+            min_cost = float('inf')
+            
+            # Probar diferentes combinaciones de estaciones de recarga
+            for station in recharge_stations:
+                # Ruta: origen -> estación -> destino
+                route1 = self._dijkstra(origin, station)
+                route2 = self._dijkstra(station, destination)
+                
+                if route1 and route2:
+                    if (self._route_feasible_with_battery(route1, max_battery) and 
+                        self._route_feasible_with_battery(route2, max_battery)):
+                        
+                        total_cost = route1['cost'] + route2['cost']
+                        if total_cost < min_cost:
+                            min_cost = total_cost
+                            # Combinar rutas
+                            combined_path = route1['path'] + route2['path'][1:]  # Evitar duplicar estación
+                            best_route = Route(combined_path, total_cost, [station], [])
+            
+            return best_route
+            
+        except Exception as e:
+            print(f"Error en _find_route_with_recharge_stops: {e}")
+            return None
+    
+    def _is_recharge_station(self, vertex):
+        """Determina si un vértice es una estación de recarga"""
+        # Implementar lógica específica según tu estructura de datos
+        # Por ejemplo, si tienes un atributo type en el vértice:
+        try:
+            return hasattr(vertex, 'type') and vertex.type() == 'recharge'
+        except:
+            # Si no hay método type, usar heurística basada en ID
+            node_id = str(vertex.element())
+            return 'recharge' in node_id.lower() or 'R' in node_id
+
+
 class RouteTracker:
+    """Seguimiento y análisis de rutas utilizadas"""
+    
     def __init__(self):
-        self.route_frequency_avl = None
-        self.node_visits = HashMap()
-        self.clients = HashMap()
-        self.orders = HashMap()
-
-    def register_route(self, route, order):
-        """Register a route using AVL and update clients/orders."""
-        route_str = "→".join(str(node_id) for node_id in route.path)
+        self.route_history = []
+        self.route_frequency = Counter()
+        self.node_visits = Counter()
+        self.client_orders = defaultdict(int)
+        self.order_records = []
         
-        # actualiza AVL por ruta de frecuencia
-        self.route_frequency_avl = avl_insert(self.route_frequency_avl, route_str)
-        
-        # actualiza la visita de nodos
-        for node_id in route.path:
-            count = self.node_visits.get(node_id) or 0
-            self.node_visits.put(node_id, count + 1)
-        
-        # registra cliente y orden
-        self.clients.put(order.client_id, order.client)
-        self.orders.put(order.id, order)
-
-    def register_route_frequency(self, route_str):
-        """Register route frequency in AVL."""
-        self.route_frequency_avl = avl_insert(self.route_frequency_avl, route_str)
-
-    def get_most_frequent_routes(self, top_n=5):
-        """Get the most frequent routes from the AVL."""
-        if self.route_frequency_avl is None:
-            return []
-        
-        routes = []
-        avl_inorder(self.route_frequency_avl, routes)
-        return sorted(routes, key=lambda x: x[1], reverse=True)[:top_n]
-
-    def get_node_visit_stats(self):
-        """Get node visit statistics."""
-        stats = []
-        for bucket in self.node_visits.buckets:
-            for key, value in bucket:
-                stats.append((key, value))
-        return sorted(stats, key=lambda x: x[1], reverse=True)
-
+    def track_route(self, route):
+        """Registra una ruta utilizada"""
+        if route:
+            route_str = " -> ".join(route.path)
+            self.route_history.append({
+                'route': route_str,
+                'path': route.path,
+                'cost': route.total_cost,
+                'timestamp': time.time(),
+                'recharge_stops': route.recharge_stops if hasattr(route, 'recharge_stops') else []
+            })
+            
+            # Actualizar frecuencias
+            self.route_frequency[route_str] += 1
+            for node in route.path:
+                self.node_visits[node] += 1
+    
+    def track_client_order(self, client_id):
+        """Registra un pedido de cliente"""
+        self.client_orders[client_id] += 1
+    
+    def track_order(self, order_id, order):
+        """Registra información de una orden"""
+        self.order_records.append((order_id, order))
+    
+    def get_most_frequent_routes(self, limit=10):
+        """Obtiene las rutas más frecuentes"""
+        return self.route_frequency.most_common(limit)
+    
+    def get_node_visit_stats(self, limit=20):
+        """Obtiene estadísticas de visitas a nodos"""
+        return self.node_visits.most_common(limit)
+    
     def get_client_stats(self):
-        """Get client statistics based on total orders."""
-        stats = []
-        for bucket in self.clients.buckets:
-            for key, client in bucket:
-                stats.append((key, client.total_orders))
-        return sorted(stats, key=lambda x: x[1], reverse=True)
-
+        """Obtiene estadísticas de clientes"""
+        return sorted([(client_id, orders) for client_id, orders in self.client_orders.items()], 
+                     key=lambda x: x[1], reverse=True)
+    
     def get_order_stats(self):
-        """Get order statistics based on total cost."""
-        stats = []
-        for bucket in self.orders.buckets:
-            for key, order in bucket:
-                stats.append((key, order))
-        return sorted(stats, key=lambda x: x[1].total_cost, reverse=True)
+        """Obtiene estadísticas de órdenes"""
+        return self.order_records
+    
+    def get_route_history(self):
+        """Obtiene el historial completo de rutas"""
+        return self.route_history
+
 
 class RouteOptimizer:
+    """Optimizador de rutas y análisis de patrones"""
+    
     def __init__(self, route_tracker, route_manager):
-        self.route_tracker = route_tracker
-        self.route_manager = route_manager
-        self.optimization_log = []
-
+        self.tracker = route_tracker
+        self.manager = route_manager
+        self.optimization_reports = []
+        
     def analyze_route_patterns(self):
-        """Analyze route patterns for future optimization."""
+        """Analiza patrones en las rutas utilizadas"""
         patterns = []
         
-        # Frequent routes
-        patterns.append("=== ANÁLISIS DE PATRONES DE RUTAS ===")
-        for route, freq in self.route_tracker.get_most_frequent_routes():
-            patterns.append(f"Ruta frecuente: {route} | Usos: {freq}")
+        # Analizar frecuencia de rutas
+        frequent_routes = self.tracker.get_most_frequent_routes(5)
+        if frequent_routes:
+            patterns.append("=== ROUTE FREQUENCY ANALYSIS ===")
+            for route, freq in frequent_routes:
+                patterns.append(f"Route: {route} | Frequency: {freq}")
         
-        # Most visited nodes
-        patterns.append("\n=== NODOS MÁS VISITADOS ===")
-        for node, visits in self.route_tracker.get_node_visit_stats()[:5]:
-
-            patterns.append(f"Nodo: {node} | Visitas: {visits}")
+        # Analizar nodos más visitados
+        node_stats = self.tracker.get_node_visit_stats(5)
+        if node_stats:
+            patterns.append("\n=== NODE VISIT ANALYSIS ===")
+            for node, visits in node_stats:
+                patterns.append(f"Node: {node} | Visits: {visits}")
         
-        # Client statistics
-        patterns.append("\n=== ESTADÍSTICAS DE CLIENTES ===")
-        for client_id, orders in self.route_tracker.get_client_stats()[:5]:
-
-            patterns.append(f"Cliente: {client_id} | Órdenes: {orders}")
+        # Analizar eficiencia de rutas
+        route_history = self.tracker.get_route_history()
+        if route_history:
+            patterns.append("\n=== ROUTE EFFICIENCY ANALYSIS ===")
+            costs = [r['cost'] for r in route_history]
+            avg_cost = sum(costs) / len(costs)
+            patterns.append(f"Average route cost: {avg_cost:.2f}")
+            patterns.append(f"Total routes analyzed: {len(route_history)}")
         
         return patterns
-
+    
     def get_optimization_report(self):
-        """Generate a report of optimizations performed."""
-        return self.optimization_log
+        """Genera reporte de optimización"""
+        reports = []
+        
+        # Reporte de eficiencia
+        route_history = self.tracker.get_route_history()
+        if route_history:
+            reports.append("=== OPTIMIZATION REPORT ===")
+            
+            # Calcular métricas
+            total_routes = len(route_history)
+            total_cost = sum(r['cost'] for r in route_history)
+            avg_cost = total_cost / total_routes if total_routes > 0 else 0
+            
+            # Rutas con recarga
+            routes_with_recharge = len([r for r in route_history if r['recharge_stops']])
+            recharge_percentage = (routes_with_recharge / total_routes * 100) if total_routes > 0 else 0
+            
+            reports.append(f"Total routes processed: {total_routes}")
+            reports.append(f"Average cost per route: {avg_cost:.2f}")
+            reports.append(f"Routes requiring recharge: {routes_with_recharge} ({recharge_percentage:.1f}%)")
+            
+            # Identificar rutas ineficientes
+            high_cost_routes = [r for r in route_history if r['cost'] > avg_cost * 1.5]
+            if high_cost_routes:
+                reports.append(f"High-cost routes identified: {len(high_cost_routes)}")
+                reports.append("Recommendation: Consider alternative routing strategies")
+        
+        return reports
+
 
 class OrderSimulator:
+    """Simulador de órdenes y procesamiento"""
+    
     def __init__(self, route_manager, route_tracker):
         self.route_manager = route_manager
-        self.route_tracker = route_tracker
-
-    def process_orders(self, num_orders=10):
-        """Process orders with required output format."""
-        warehouses = [v.element() for v in self.route_manager.graph.vertices() 
-                     if self.route_manager.vertex_types.get(v.element()) == 'warehouse']
-        clients = [v.element() for v in self.route_manager.graph.vertices() 
-                  if self.route_manager.vertex_types.get(v.element()) == 'client']
+        self.tracker = route_tracker
+        self.clients = []
+        self.orders = []
+        
+    def generate_clients(self, graph):
+        """Genera clientes basados en los nodos del grafo"""
+        self.clients = []
+        
+        # Buscar nodos que podrían ser clientes
+        client_nodes = []
+        for vertex in graph.vertices():
+            node_id = vertex.element()
+            # Buscar nodos que no sean warehouse ni recharge
+            if not self._is_warehouse_node(node_id) and not self._is_recharge_node(node_id):
+                client_nodes.append(node_id)
+        
+        # Si no hay nodos específicos de cliente, usar todos los nodos
+        if not client_nodes:
+            client_nodes = [v.element() for v in graph.vertices()]
+        
+        for i, node_id in enumerate(client_nodes):
+            client = Client(
+                id=f"C{i+1}",
+                name=f"Cliente {i+1}",
+                node_id=node_id
+            )
+            self.clients.append(client)
+        
+        return self.clients
+    
+    def _is_warehouse_node(self, node_id):
+        """Determina si un nodo es warehouse"""
+        node_str = str(node_id).lower()
+        return 'warehouse' in node_str or 'w' in node_str
+    
+    def _is_recharge_node(self, node_id):
+        """Determina si un nodo es de recarga"""
+        node_str = str(node_id).lower()
+        return 'recharge' in node_str or 'r' in node_str
+    
+    def process_orders(self, num_orders):
+        """Procesa un número determinado de órdenes"""
+        graph = self.route_manager.graph
+        
+        # Generar clientes si no existen
+        if not self.clients:
+            self.generate_clients(graph)
+        
+        # Obtener nodos warehouse para orígenes
+        warehouse_nodes = []
+        for vertex in graph.vertices():
+            node_id = vertex.element()
+            if self._is_warehouse_node(node_id):
+                warehouse_nodes.append(node_id)
+        
+        # Si no hay warehouse específicos, usar algunos nodos aleatorios como warehouse
+        if not warehouse_nodes:
+            all_nodes = [v.element() for v in graph.vertices()]
+            warehouse_nodes = random.sample(all_nodes, min(3, len(all_nodes)))
+            print(f"DEBUG: Usando nodos como warehouse: {warehouse_nodes}")
+        
+        if not warehouse_nodes or not self.clients:
+            print("Error: No hay nodos warehouse o clientes disponibles")
+            return
+        
+        print(f"Procesando {num_orders} órdenes...")
+        print(f"DEBUG: Warehouse disponibles: {warehouse_nodes}")
+        print(f"DEBUG: Clientes disponibles: {len(self.clients)}")
         
         for i in range(num_orders):
-            if not warehouses or not clients:
-                print(f"Orden #{i+1}: No hay almacenes o clientes disponibles")
-                continue
-                
-            origin = random.choice(warehouses)
-            destination = random.choice(clients)
-            client_obj = self.route_tracker.clients.get(destination)
-            if not client_obj:
-                client_obj = Client(destination, destination) # Use ID as name
-                self.route_tracker.clients.put(destination, client_obj)
+            # Seleccionar origen y destino aleatorios
+            origin = random.choice(warehouse_nodes)
+            client = random.choice(self.clients)
+            destination = client.node_id
             
-            order = Order(i+1, client_obj, origin, destination)
+            # Crear orden
+            order = Order(
+                order_id=f"ORD{i+1:03d}",
+                client=client,
+                origin=origin,
+                destination=destination,
+                weight=random.uniform(0.5, 5.0),
+                priority=random.choice(['normal', 'urgent', 'express'])
+            )
             
-            route = self.route_manager.find_route_with_recharge(origin, destination)
+            # Procesar orden
+            self._process_single_order(order)
             
-            if route:
-                order.mark_delivered(route.total_cost)
-                self.route_tracker.register_route(route, order)
-                
-                origin_name = origin 
-                dest_name = destination
-                route_names = [node_id for node_id in route.path]
-                recharge_names = [node_id for node_id in route.recharge_stops]
-                
-                print(f"Orden #{i+1}: {origin_name} → {dest_name}")
-                print(f"Ruta: {' → '.join(route_names)}")
-                print(f"Costo: {route.total_cost} | Paradas de recarga: {recharge_names} | Estado: Entregado")
+            # Registrar estadísticas
+            self.tracker.track_client_order(client.id)
+            self.tracker.track_order(order.order_id, order)
+    
+    def _process_single_order(self, order):
+        """Procesa una orden individual"""
+        print(f"\n--- Procesando Orden {order.order_id} ---")
+        print(f"Cliente: {order.client.id}")
+        print(f"Origen: {order.origin} -> Destino: {order.destination}")
+        print(f"Peso: {order.weight:.2f}kg | Prioridad: {order.priority}")
+        
+        # Buscar ruta
+        route = self.route_manager.find_route_with_recharge(order.origin, order.destination)
+        
+        if route:
+            print(f"Ruta encontrada: {' -> '.join(route.path)}")
+            print(f"Costo total: {route.total_cost:.2f}")
+            
+            if hasattr(route, 'recharge_stops') and route.recharge_stops:
+                print(f"Paradas de recarga: {', '.join(route.recharge_stops)}")
+            
+            # Simular entrega
+            delivery_success = random.random() > 0.1  # 90% éxito
+            
+            if delivery_success:
+                order.status = "Entregado"
+                order.total_cost = route.total_cost
+                print("Estado: Entregado ✅")
             else:
-                order.mark_failed()
-                origin_name = origin
-                dest_name = destination
-                print(f"Orden #{i+1}: {origin_name} → {dest_name}")
-                print(f"Estado: No se encontró ruta válida")
+                order.status = "Fallido"
+                print("Estado: Fallido ❌")
+            
+            # Registrar ruta
+            self.tracker.track_route(route)
+            
+        else:
+            print("❌ No se pudo encontrar una ruta válida")
+            order.status = "Sin ruta"
+        
+        self.orders.append(order)
+    
+    def get_simulation_summary(self):
+        """Obtiene resumen de la simulación"""
+        if not self.orders:
+            return "No hay órdenes procesadas"
+        
+        total_orders = len(self.orders)
+        delivered = len([o for o in self.orders if o.status == "Entregado"])
+        failed = len([o for o in self.orders if o.status == "Fallido"])
+        no_route = len([o for o in self.orders if o.status == "Sin ruta"])
+        
+        summary = f"""
+=== RESUMEN DE SIMULACIÓN ===
+Total de órdenes: {total_orders}
+Entregadas: {delivered} ({delivered/total_orders*100:.1f}%)  
+Fallidas: {failed} ({failed/total_orders*100:.1f}%)
+Sin ruta: {no_route} ({no_route/total_orders*100:.1f}%)
+        """
+        
+        return summary

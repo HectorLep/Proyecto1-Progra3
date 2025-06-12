@@ -1,15 +1,16 @@
 from datetime import datetime
 
 class Order:
-    def __init__(self, id, client, origin, destination, priority=1):
-        self.id = id
+    def __init__(self, order_id, client, origin, destination, weight, priority):
+        self.order_id = order_id  # Agrega order_id
         self.client = client
         self.client_id = client.id
         self.origin = origin
         self.destination = destination
+        self.weight = weight  # Agrega weight
+        self.priority = priority  # Actualiza para usar priority directamente
         self.status = "pending"  # pending, delivered, failed
         self.creation_date = datetime.now()
-        self.priority = priority  # 1 (low) to 5 (high)
         self.delivery_date = None
         self.total_cost = 0
 
@@ -24,7 +25,7 @@ class Order:
         self.delivery_date = datetime.now()
 
     def __str__(self):
-        return (f"Order(id={self.id}, client={self.client_id}, origin={self.origin}, "
+        return (f"Order(id={self.order_id}, client={self.client_id}, origin={self.origin}, "
                 f"destination={self.destination}, status={self.status}, priority={self.priority})")
 
     def __repr__(self):

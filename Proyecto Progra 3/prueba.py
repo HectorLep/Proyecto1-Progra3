@@ -23,6 +23,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize session state for tab persistence
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = 0
+
 st.markdown("""
 <style>
     .main-header {
@@ -177,39 +181,56 @@ with st.sidebar:
     
     run_button = st.button("🚀 Start Simulation", type="primary", use_container_width=True)
 
+# Initialize session state for simulation data
+if 'simulation_data' not in st.session_state:
+    st.session_state.simulation_data = None
+
 # Contenido principal
 if run_button:
     with st.spinner("Initializing simulation..."):
-        # Ejecutar simulación
-        graph, route_patterns, optimization_reports, simulation_output, tracker, node_stats = run_simulation(
-            num_nodes, num_edges, num_orders
-        )
+        # Ejecutar simulación y guardar en session state
+        st.session_state.simulation_data = run_simulation(num_nodes, num_edges, num_orders)
+        st.session_state.simulation_params = {
+            'num_nodes': num_nodes,
+            'num_edges': num_edges,
+            'num_orders': num_orders
+        }
+
+# Check if simulation data exists
+if st.session_state.simulation_data is not None:
+    graph, route_patterns, optimization_reports, simulation_output, tracker, node_stats = st.session_state.simulation_data
+    params = st.session_state.simulation_params
     
-    # Crear pestañas
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🎯 Run Simulation", 
-        "🌐 Explore Network", 
-        "👥 Clients & Orders", 
-        "📊 Route Analytics", 
-        "📈 Statistics"
-    ])
+    # Tab navigation with session state
+    tab_names = ["🎯 Run Simulation", "🌐 Explore Network", "👥 Clients & Orders", "📊 Route Analytics", "📈 Statistics"]
     
-    with tab1:
+    # Create tabs but handle selection manually
+    selected_tab = st.selectbox("Select Tab:", tab_names, 
+                               index=st.session_state.active_tab,
+                               key="tab_selector")
+    
+    # Update active tab in session state
+    if selected_tab != tab_names[st.session_state.active_tab]:
+        st.session_state.active_tab = tab_names.index(selected_tab)
+    
+    st.markdown("---")
+    
+    if st.session_state.active_tab == 0:  # Run Simulation
         st.header("📊 Simulation Results")
         
         # Métricas principales
         col1, col2, col3, col4 = st.columns(4)
         
         with col1:
-            st.metric("Total Nodes", num_nodes, delta=None)
+            st.metric("Total Nodes", params['num_nodes'], delta=None)
         with col2:
-            st.metric("Total Edges", num_edges, delta=None)
+            st.metric("Total Edges", params['num_edges'], delta=None)
         with col3:
-            st.metric("Orders Processed", num_orders, delta=None)
+            st.metric("Orders Processed", params['num_orders'], delta=None)
         with col4:
             successful_orders = simulation_output.count("Estado: Entregado")
             st.metric("Successful Deliveries", successful_orders, 
-                     delta=f"{(successful_orders/num_orders)*100:.1f}%" if num_orders > 0 else "0%")
+                     delta=f"{(successful_orders/params['num_orders'])*100:.1f}%" if params['num_orders'] > 0 else "0%")
         
         # Distribución de nodos
         st.subheader("📊 Node Distribution")
@@ -237,47 +258,68 @@ if run_button:
             )
             st.pyplot(fig_bar)
     
-    with tab2:
+    elif st.session_state.active_tab == 1:  # Explore Network
         st.header("🌐 Network Visualization")
         
+        # Initialize route calculation state
+        if 'calculated_route' not in st.session_state:
+            st.session_state.calculated_route = None
+        if 'route_message' not in st.session_state:
+            st.session_state.route_message = ""
+        
         # Create and show Matplotlib visualization
-        fig = create_network_visualization(graph)
+        highlighted_route = st.session_state.calculated_route.path if st.session_state.calculated_route else None
+        fig = create_network_visualization(graph, highlighted_route=highlighted_route)
         st.pyplot(fig)
         
         # Panel de cálculo de rutas
         st.subheader("🧭 Calculate Route")
-        col1, col2, col3 = st.columns(3)
         
         # Obtener nodos disponibles
-        all_nodes = [v.element() for v in graph.vertices()]
         warehouses = [v.element() for v in graph.vertices() if v.type() == 'warehouse']
         clients = [v.element() for v in graph.vertices() if v.type() == 'client']
         
-        with col1:
-            origin_node = st.selectbox("Origin Node", options=warehouses, key="origin")
-        with col2:
-            dest_node = st.selectbox("Destination Node", options=clients, key="dest")
-        with col3:
-            if st.button("🔍 Calculate Route", type="secondary"):
-                if origin_node and dest_node:
-                    manager = RouteManager(graph)
-                    es_valido, mensaje_error = validar_calculo_ruta(graph, origin_node, dest_node)
-                    if not es_valido:
-                        st.error(mensaje_error)
-                        st.stop()
+        # Create a form to prevent rerunning on each selection
+        with st.form("route_calculation_form"):
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                origin_node = st.selectbox("Origin Node", options=warehouses, key="origin_form")
+            with col2:
+                dest_node = st.selectbox("Destination Node", options=clients, key="dest_form")
+            with col3:
+                calculate_button = st.form_submit_button("🔍 Calculate Route", type="secondary")
+        
+        # Handle route calculation
+        if calculate_button:
+            if origin_node and dest_node:
+                manager = RouteManager(graph)
+                es_valido, mensaje_error = validar_calculo_ruta(graph, origin_node, dest_node)
+                if not es_valido:
+                    st.session_state.route_message = f"❌ {mensaje_error}"
+                    st.session_state.calculated_route = None
+                else:
                     route = manager.find_route_with_recharge(origin_node, dest_node)
                     if route:
-                        st.success(f"Route found: {' → '.join(route.path)}")
-                        st.info(f"Total cost: {route.total_cost}")
+                        st.session_state.calculated_route = route
+                        route_path = ' → '.join(route.path)
+                        st.session_state.route_message = f"✅ Route found: {route_path}\n💰 Total cost: {route.total_cost}"
                         if route.recharge_stops:
-                            st.warning(f"Recharge stops: {', '.join(route.recharge_stops)}")
-                        # Redraw the graph with the highlighted route
-                        fig = create_network_visualization(graph, highlighted_route=route.path)
-                        st.pyplot(fig)
+                            st.session_state.route_message += f"\n🔋 Recharge stops: {', '.join(route.recharge_stops)}"
                     else:
-                        st.error("No valid route found!")
+                        st.session_state.route_message = "❌ No valid route found!"
+                        st.session_state.calculated_route = None
+                # Force rerun to update visualization
+                st.rerun()
+        
+        # Display route message
+        if st.session_state.route_message:
+            if "✅" in st.session_state.route_message:
+                st.success(st.session_state.route_message)
+            else:
+                st.error(st.session_state.route_message)
     
-    with tab3:
+    elif st.session_state.active_tab == 2:  # Clients & Orders
         st.header("👥 Clients & Orders")
         
         # Estadísticas de clientes
@@ -320,7 +362,7 @@ if run_button:
                 )
                 st.pyplot(fig_orders)
     
-    with tab4:
+    elif st.session_state.active_tab == 3:  # Route Analytics
         st.header("📊 Route Analytics")
         
         # Mostrar patrones de rutas
@@ -370,7 +412,7 @@ if run_button:
                 )
                 st.pyplot(fig_visits)
     
-    with tab5:
+    elif st.session_state.active_tab == 4:  # Statistics
         st.header("📈 Statistics")
         
         # Métricas avanzadas
