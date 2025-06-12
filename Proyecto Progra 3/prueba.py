@@ -1,8 +1,6 @@
-# prueba.py
 import streamlit as st
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import pandas as pd
 import networkx as nx
 from model.graph import Graph
@@ -15,9 +13,9 @@ from sim.rutas import RouteManager, RouteTracker, RouteOptimizer, OrderSimulator
 import random
 import time
 from validaciones.validaciones import *
-from visual.networkx_adapter import create_network_visualization  # New import
+from visual.networkx_adapter import create_network_visualization
+import numpy as np
 
-# Configuración de la página
 st.set_page_config(
     page_title="🚁 Drone Logistics Simulator - Correos Chile",
     page_icon="🚁",
@@ -25,7 +23,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# CSS personalizado para mejorar la apariencia
 st.markdown("""
 <style>
     .main-header {
@@ -61,20 +58,73 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# Función principal de simulación
+def create_pie_chart(values, labels, title, colors=None):
+    """Create a pie chart using matplotlib"""
+    fig, ax = plt.subplots(figsize=(8, 6))
+    if colors is None:
+        colors = ['#8B4513', '#FFA500', '#32CD32']
+    
+    wedges, texts, autotexts = ax.pie(values, labels=labels, autopct='%1.1f%%', 
+                                      colors=colors, startangle=90)
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    
+    # Make percentage text bold and white
+    for autotext in autotexts:
+        autotext.set_color('white')
+        autotext.set_fontweight('bold')
+    
+    return fig
+
+def create_bar_chart(x_data, y_data, title, colors=None, xlabel='', ylabel=''):
+    """Create a bar chart using matplotlib"""
+    fig, ax = plt.subplots(figsize=(8, 6))
+    if colors is None:
+        colors = ['#8B4513', '#FFA500', '#32CD32']
+    
+    bars = ax.bar(x_data, y_data, color=colors)
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel(ylabel, fontsize=12)
+    
+    # Add value labels on bars
+    for bar in bars:
+        height = bar.get_height()
+        ax.text(bar.get_x() + bar.get_width()/2., height,
+                f'{int(height)}', ha='center', va='bottom', fontweight='bold')
+    
+    # Rotate x-axis labels if they're long
+    if any(len(str(label)) > 8 for label in x_data):
+        plt.xticks(rotation=45, ha='right')
+    
+    plt.tight_layout()
+    return fig
+
+def create_horizontal_bar_chart(x_data, y_data, title, color='#007bff'):
+    """Create a horizontal bar chart using matplotlib"""
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    bars = ax.barh(y_data, x_data, color=color)
+    ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+    ax.set_xlabel('Value', fontsize=12)
+    
+    # Add value labels on bars
+    for i, bar in enumerate(bars):
+        width = bar.get_width()
+        ax.text(width, bar.get_y() + bar.get_height()/2.,
+                f'{int(width)}', ha='left', va='center', fontweight='bold')
+    
+    plt.tight_layout()
+    return fig
+
 @st.cache_data
 def run_simulation(num_nodes, num_edges, num_orders):
-    # Crear un grafo aleatorio
     g = Graph(directed=True)
     g.generate_random_graph(num_nodes=num_nodes, num_edges=num_edges)
     
-    # Gestores y simuladores
     manager = RouteManager(g)
     tracker = RouteTracker()
     optimizer = RouteOptimizer(tracker, manager)
     simulator = OrderSimulator(manager, tracker)
-    
-    # Capturar la salida de la simulación
     import io
     import sys
     old_stdout = sys.stdout
@@ -167,24 +217,25 @@ if run_button:
         
         with col1:
             # Gráfico de pastel
-            fig_pie = px.pie(
+            fig_pie = create_pie_chart(
                 values=list(node_stats.values()),
-                names=['Warehouse', 'Recharge', 'Client'],
+                labels=['Warehouse', 'Recharge', 'Client'],
                 title="Node Type Distribution",
-                color_discrete_sequence=['#8B4513', '#FFA500', '#32CD32']
+                colors=['#8B4513', '#FFA500', '#32CD32']
             )
-            st.plotly_chart(fig_pie, use_container_width=True)
+            st.pyplot(fig_pie)
         
         with col2:
             # Gráfico de barras
-            fig_bar = px.bar(
-                x=['Warehouse', 'Recharge', 'Client'],
-                y=list(node_stats.values()),
+            fig_bar = create_bar_chart(
+                x_data=['Warehouse', 'Recharge', 'Client'],
+                y_data=list(node_stats.values()),
                 title="Node Count by Type",
-                color=['Warehouse', 'Recharge', 'Client'],
-                color_discrete_sequence=['#8B4513', '#FFA500', '#32CD32']
+                colors=['#8B4513', '#FFA500', '#32CD32'],
+                xlabel="Node Type",
+                ylabel="Count"
             )
-            st.plotly_chart(fig_bar, use_container_width=True)
+            st.pyplot(fig_bar)
     
     with tab2:
         st.header("🌐 Network Visualization")
@@ -237,13 +288,16 @@ if run_button:
             st.dataframe(client_df.head(10), use_container_width=True)
             
             # Gráfico de clientes
-            fig_clients = px.bar(
-                client_df.head(10),
-                x='Client ID',
-                y='Total Orders',
-                title='Top 10 Clients by Order Volume'
+            top_clients = client_df.head(10)
+            fig_clients = create_bar_chart(
+                x_data=top_clients['Client ID'].astype(str),
+                y_data=top_clients['Total Orders'],
+                title='Top 10 Clients by Order Volume',
+                colors=['#007bff'] * len(top_clients),
+                xlabel='Client ID',
+                ylabel='Total Orders'
             )
-            st.plotly_chart(fig_clients, use_container_width=True)
+            st.pyplot(fig_clients)
         
         # Estadísticas de órdenes
         order_stats = tracker.get_order_stats()
@@ -252,6 +306,19 @@ if run_button:
             order_data = [(oid, order.total_cost, order.status) for oid, order in order_stats[:10]]
             order_df = pd.DataFrame(order_data, columns=['Order ID', 'Total Cost', 'Status'])
             st.dataframe(order_df, use_container_width=True)
+            
+            # Gráfico de costos de órdenes
+            if len(order_df) > 0:
+                fig_orders = create_bar_chart(
+                    x_data=order_df['Order ID'].astype(str),
+                    y_data=order_df['Total Cost'],
+                    title='Top 10 Orders by Cost',
+                    colors=['#28a745' if status == 'Delivered' else '#dc3545' 
+                           for status in order_df['Status']],
+                    xlabel='Order ID',
+                    ylabel='Total Cost'
+                )
+                st.pyplot(fig_orders)
     
     with tab4:
         st.header("📊 Route Analytics")
@@ -269,6 +336,19 @@ if run_button:
                     <strong>{i}. Route hash:</strong> {route} | <span style="color: #007bff;">Frequency: {freq}</span>
                 </div>
                 """, unsafe_allow_html=True)
+            
+            # Gráfico de frecuencia de rutas
+            if len(frequent_routes) > 0:
+                route_labels = [f"Route {i+1}" for i in range(len(frequent_routes))]
+                route_frequencies = [freq for _, freq in frequent_routes]
+                
+                fig_routes = create_horizontal_bar_chart(
+                    x_data=route_frequencies,
+                    y_data=route_labels,
+                    title='Most Frequent Routes',
+                    color='#ff6b6b'
+                )
+                st.pyplot(fig_routes)
         
         # Estadísticas de nodos visitados
         node_visits = tracker.get_node_visit_stats()
@@ -280,13 +360,15 @@ if run_button:
             with col1:
                 st.dataframe(visit_df, use_container_width=True)
             with col2:
-                fig_visits = px.bar(
-                    visit_df,
-                    x='Node',
-                    y='Visits',
-                    title='Node Visit Frequency'
+                fig_visits = create_bar_chart(
+                    x_data=visit_df['Node'].astype(str),
+                    y_data=visit_df['Visits'],
+                    title='Node Visit Frequency',
+                    colors=['#4ecdc4'] * len(visit_df),
+                    xlabel='Node',
+                    ylabel='Visits'
                 )
-                st.plotly_chart(fig_visits, use_container_width=True)
+                st.pyplot(fig_visits)
     
     with tab5:
         st.header("📈 Statistics")
@@ -305,6 +387,27 @@ if run_button:
         with col3:
             connectivity = "Connected" if graph.is_connected() else "Disconnected"
             st.metric("Graph Connectivity", connectivity)
+        
+        # Análisis de distribución de grados
+        st.subheader("📊 Degree Distribution Analysis")
+        
+        # Calcular distribución de grados
+        degrees = []
+        for vertex in graph.vertices():
+            in_degree = len(list(graph.incident_edges(vertex, outgoing=False)))
+            out_degree = len(list(graph.incident_edges(vertex, outgoing=True)))
+            degrees.append(in_degree + out_degree)
+        
+        if degrees:
+            # Histograma de distribución de grados
+            fig, ax = plt.subplots(figsize=(10, 6))
+            ax.hist(degrees, bins=max(1, len(set(degrees))), color='#45b7d1', alpha=0.7, edgecolor='black')
+            ax.set_title('Node Degree Distribution', fontsize=14, fontweight='bold')
+            ax.set_xlabel('Degree', fontsize=12)
+            ax.set_ylabel('Frequency', fontsize=12)
+            ax.grid(True, alpha=0.3)
+            plt.tight_layout()
+            st.pyplot(fig)
         
         # Análisis detallado
         st.subheader("📋 Detailed Analysis")
