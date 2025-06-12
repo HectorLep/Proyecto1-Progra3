@@ -245,20 +245,16 @@ class RouteOptimizer:
         return patterns
     
     def get_optimization_report(self):
-        """Genera reporte de optimización"""
         reports = []
         
-        # Reporte de eficiencia
         route_history = self.tracker.get_route_history()
         if route_history:
             reports.append("=== OPTIMIZATION REPORT ===")
             
-            # Calcular métricas
             total_routes = len(route_history)
             total_cost = sum(r['cost'] for r in route_history)
             avg_cost = total_cost / total_routes if total_routes > 0 else 0
             
-            # Rutas con recarga
             routes_with_recharge = len([r for r in route_history if r['recharge_stops']])
             recharge_percentage = (routes_with_recharge / total_routes * 100) if total_routes > 0 else 0
             
@@ -266,7 +262,6 @@ class RouteOptimizer:
             reports.append(f"Average cost per route: {avg_cost:.2f}")
             reports.append(f"Routes requiring recharge: {routes_with_recharge} ({recharge_percentage:.1f}%)")
             
-            # Identificar rutas ineficientes
             high_cost_routes = [r for r in route_history if r['cost'] > avg_cost * 1.5]
             if high_cost_routes:
                 reports.append(f"High-cost routes identified: {len(high_cost_routes)}")
@@ -276,8 +271,6 @@ class RouteOptimizer:
 
 
 class OrderSimulator:
-    """Simulador de órdenes y procesamiento"""
-    
     def __init__(self, route_manager, route_tracker):
         self.route_manager = route_manager
         self.tracker = route_tracker
@@ -285,18 +278,13 @@ class OrderSimulator:
         self.orders = []
         
     def generate_clients(self, graph):
-        """Genera clientes basados en los nodos del grafo"""
         self.clients = []
         
-        # Buscar nodos que podrían ser clientes
         client_nodes = []
         for vertex in graph.vertices():
             node_id = vertex.element()
-            # Buscar nodos que no sean warehouse ni recharge
             if not self._is_warehouse_node(node_id) and not self._is_recharge_node(node_id):
                 client_nodes.append(node_id)
-        
-        # Si no hay nodos específicos de cliente, usar todos los nodos
         if not client_nodes:
             client_nodes = [v.element() for v in graph.vertices()]
         
@@ -311,31 +299,25 @@ class OrderSimulator:
         return self.clients
     
     def _is_warehouse_node(self, node_id):
-        """Determina si un nodo es warehouse"""
         node_str = str(node_id).lower()
         return 'warehouse' in node_str or 'w' in node_str
     
     def _is_recharge_node(self, node_id):
-        """Determina si un nodo es de recarga"""
         node_str = str(node_id).lower()
         return 'recharge' in node_str or 'r' in node_str
     
     def process_orders(self, num_orders):
-        """Procesa un número determinado de órdenes"""
         graph = self.route_manager.graph
         
-        # Generar clientes si no existen
         if not self.clients:
             self.generate_clients(graph)
         
-        # Obtener nodos warehouse para orígenes
         warehouse_nodes = []
         for vertex in graph.vertices():
             node_id = vertex.element()
             if self._is_warehouse_node(node_id):
                 warehouse_nodes.append(node_id)
         
-        # Si no hay warehouse específicos, usar algunos nodos aleatorios como warehouse
         if not warehouse_nodes:
             all_nodes = [v.element() for v in graph.vertices()]
             warehouse_nodes = random.sample(all_nodes, min(3, len(all_nodes)))
@@ -350,12 +332,10 @@ class OrderSimulator:
         print(f"DEBUG: Clientes disponibles: {len(self.clients)}")
         
         for i in range(num_orders):
-            # Seleccionar origen y destino aleatorios
             origin = random.choice(warehouse_nodes)
             client = random.choice(self.clients)
             destination = client.node_id
             
-            # Crear orden
             order = Order(
                 order_id=f"ORD{i+1:03d}",
                 client=client,
@@ -365,21 +345,17 @@ class OrderSimulator:
                 priority=random.choice(['normal', 'urgent', 'express'])
             )
             
-            # Procesar orden
             self._process_single_order(order)
             
-            # Registrar estadísticas
             self.tracker.track_client_order(client.id)
             self.tracker.track_order(order.order_id, order)
     
     def _process_single_order(self, order):
-        """Procesa una orden individual"""
         print(f"\n--- Procesando Orden {order.order_id} ---")
         print(f"Cliente: {order.client.id}")
         print(f"Origen: {order.origin} -> Destino: {order.destination}")
         print(f"Peso: {order.weight:.2f}kg | Prioridad: {order.priority}")
         
-        # Buscar ruta
         route = self.route_manager.find_route_with_recharge(order.origin, order.destination)
         
         if route:
@@ -389,8 +365,8 @@ class OrderSimulator:
             if hasattr(route, 'recharge_stops') and route.recharge_stops:
                 print(f"Paradas de recarga: {', '.join(route.recharge_stops)}")
             
-            # Simular entrega
-            delivery_success = random.random() > 0.1  # 90% éxito
+         
+            delivery_success = random.random() > 0.1 
             
             if delivery_success:
                 order.status = "Entregado"
@@ -410,7 +386,6 @@ class OrderSimulator:
         self.orders.append(order)
     
     def get_simulation_summary(self):
-        """Obtiene resumen de la simulación"""
         if not self.orders:
             return "No hay órdenes procesadas"
         
