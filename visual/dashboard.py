@@ -352,6 +352,8 @@ def renderizar_pestana_estadisticas(grafo, patrones_ruta, reportes_optimizacion,
 
 def main():
     """Aplicación principal del dashboard"""
+    if 'active_tab' not in st.session_state:
+        st.session_state.active_tab = 0
     # Título principal
     st.markdown("""
     <div class="main-header">
@@ -395,6 +397,9 @@ def main():
                 'num_aristas': num_aristas,
                 'num_ordenes': num_ordenes
             }
+            # Add the following lines here:
+            st.session_state.ruta_calculada = None
+            st.session_state.mensaje_ruta = ""
     
     # Verificar si existen datos de simulación
     if st.session_state.datos_simulacion is not None:
