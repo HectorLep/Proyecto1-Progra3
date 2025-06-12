@@ -9,6 +9,8 @@ from tda.mapa_hash import HashMap
 from sim.rutas import RouteManager, RouteTracker, RouteOptimizer, OrderSimulator
 import random
 import time
+from visual.AVLVisualizer import AVLTreeVisualizer
+from visual.AVLVisualizer import get_tree_traversals
 from validaciones.validaciones import *
 from visual.networkx_adapter import crear_visualizacion_red
 from visual.AVLVisualizer import create_pie_chart, create_bar_chart, create_horizontal_bar_chart
@@ -89,6 +91,17 @@ def ejecutar_simulacion(num_nodos, num_aristas, num_ordenes):
     }
     
     return g, patrones_ruta, reportes_optimizacion, salida_simulacion, tracker, estadisticas_nodos
+
+def crear_avl_desde_rutas(tracker):
+    """Crear un árbol AVL con las rutas más frecuentes"""   
+    avl_root = None
+    rutas_frecuentes = tracker.get_most_frequent_routes(15)  # Obtener más rutas para el AVL
+    
+    for ruta_hash, frecuencia in rutas_frecuentes:
+        # Usar el hash de la ruta como clave para el AVL
+        avl_root = avl_insert(avl_root, ruta_hash)
+    
+    return avl_root
 
 def renderizar_pestana_simulacion(parametros, estadisticas_nodos, salida_simulacion):
     """Renderizar la pestaña de resultados de simulación"""
@@ -241,11 +254,11 @@ def renderizar_pestana_clientes_ordenes(tracker):
             st.pyplot(fig_ordenes)
 
 def renderizar_pestana_analisis_rutas(tracker):
-    """Renderizar la pestaña de análisis de rutas"""
+    """Renderizar la pestaña de análisis de rutas con visualización AVL"""
     st.header("📊 Análisis de Rutas")
     
-    # Mostrar patrones de rutas
-    st.subheader("🛣️ Frecuencia e Historial de Rutas")
+    # Mostrar información general de rutas
+    st.subheader("🛣️ Información General de Rutas")
     
     # Rutas más frecuentes
     rutas_frecuentes = tracker.get_most_frequent_routes(10)
@@ -257,21 +270,80 @@ def renderizar_pestana_analisis_rutas(tracker):
                 <strong>{i}. Hash de ruta:</strong> {ruta} | <span style="color: #007bff;">Frecuencia: {freq}</span>
             </div>
             """, unsafe_allow_html=True)
-        
-        # Gráfico de frecuencia de rutas
-        if len(rutas_frecuentes) > 0:
-            etiquetas_rutas = [f"Ruta {i+1}" for i in range(len(rutas_frecuentes))]
-            frecuencias_rutas = [freq for _, freq in rutas_frecuentes]
-            
-            fig_rutas = create_horizontal_bar_chart(
-                x_data=frecuencias_rutas,
-                y_data=etiquetas_rutas,
-                title='Rutas Más Frecuentes',
-                color='#ff6b6b'
-            )
-            st.pyplot(fig_rutas)
     
-    # Estadísticas de visitas a nodos
+    # Visualización del Árbol AVL
+    st.subheader("🌳 Árbol AVL de Rutas")
+    
+    # Crear el árbol AVL con las rutas
+    avl_root = crear_avl_desde_rutas(tracker)
+    
+    if avl_root is not None:
+        # Crear visualizador AVL
+        visualizador = AVLTreeVisualizer()
+        
+        # Convertir las rutas frecuentes a claves para el árbol de demostración
+        rutas_keys = [ruta_hash for ruta_hash, _ in rutas_frecuentes[:10]]  # Usar solo los primeros 10
+        
+        # Crear árbol de muestra con las claves de ruta
+        if rutas_keys:
+            arbol_muestra = visualizador.create_sample_tree(rutas_keys)
+            
+            # Crear la visualización del árbol
+            fig_avl = visualizador.visualize_tree(arbol_muestra, title="Árbol AVL de Rutas Frecuentes")
+            
+            if fig_avl is not None:
+                st.pyplot(fig_avl)
+                
+                # Información adicional sobre el AVL
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    altura_arbol = visualizador._get_height(arbol_muestra)
+                    st.metric("Altura del Árbol", altura_arbol)
+                
+                with col2:
+                    def count_nodes(node):
+                        if not node:
+                            return 0
+                        return 1 + count_nodes(node.left) + count_nodes(node.right)
+                    
+                    total_nodos = count_nodes(arbol_muestra)
+                    st.metric("Total de Nodos", total_nodos)
+                
+                with col3:
+                    factor_balance = arbol_muestra.balance_factor if arbol_muestra else 0
+                    st.metric("Factor de Balance (raíz)", factor_balance)
+                
+                # Mostrar información detallada del árbol
+                with st.expander("🔍 Información Detallada del Árbol AVL"):
+                    st.markdown("**Características del Árbol AVL:**")
+                    st.markdown("- **Balanceado**: El árbol mantiene el balance automáticamente")
+                    st.markdown("- **Clave**: Hash de ruta (identificador único)")
+                    st.markdown("- **Valor**: Frecuencia de uso de la ruta")
+                    st.markdown("- **Ordenamiento**: Por hash de ruta (orden lexicográfico)")
+                    
+                    # Mostrar recorridos del árbol
+                    st.markdown("**Recorridos del Árbol:**")
+                    
+                    # Obtener recorridos usando el visualizador
+                    traversals = get_tree_traversals(visualizador, arbol_muestra)
+                    
+                    # Recorrido inorden
+                    st.text(f"Inorden: {traversals['inorder']}")
+                    
+                    # Recorrido preorden
+                    st.text(f"Preorden: {traversals['preorder']}")
+                    
+                    # Recorrido postorden
+                    st.text(f"Postorden: {traversals['postorder']}")
+            else:
+                st.warning("No se pudo generar la visualización del árbol AVL")
+        else:
+            st.info("No hay rutas suficientes para visualizar")
+    else:
+        st.info("No hay suficientes datos de rutas para construir el árbol AVL")
+    
+    # Estadísticas de visitas a nodos (mantener esta sección)
     visitas_nodos = tracker.get_node_visit_stats()
     if visitas_nodos:
         st.subheader("📍 Nodos Más Visitados")
