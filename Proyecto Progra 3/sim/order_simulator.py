@@ -1,7 +1,7 @@
 import random
 from datetime import datetime, timedelta
-from domain.order import Order
-from domain.client import Client
+from domain.orden import Order
+from domain.cliente import Client
 
 class OrderSimulator:
     def __init__(self, graph):

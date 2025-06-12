@@ -1,8 +1,8 @@
 from .simulation_initializer import SimulationInitializer
 from .order_simulator import OrderSimulator
 from .order_processor import OrderProcessor
-from tda.avl import AVL
-from tda.map import Map
+from tda.avl import AVLNode
+from tda.mapa_hash import HashMap 
 
 class Simulation:
     def __init__(self):
@@ -10,9 +10,9 @@ class Simulation:
         self.order_simulator = None
         self.order_processor = None
         self.graph = None
-        self.route_avl = AVL()
-        self.client_map = Map()
-        self.order_map = Map()
+        self.route_avl = AVLNode()
+        self.client_map = HashMap()
+        self.order_map = HashMap()
         self.is_initialized = False
         
     def initialize_simulation(self, n_nodes=15, m_edges=20, n_orders=10):
