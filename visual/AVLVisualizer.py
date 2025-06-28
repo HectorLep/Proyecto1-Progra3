@@ -255,13 +255,29 @@ class AVLTreeVisualizer:
                           ec='black', linewidth=2, zorder=3)
         ax.add_patch(circle)
         
-        # Draw key
-        ax.text(x, y, str(node.key), ha='center', va='center', 
-               fontsize=12, fontweight='bold', zorder=4)
-        
-        # Draw balance factor
+        # Draw key (route_key or key) and frequency if available
+        display_text = ""
+        if hasattr(node, 'route_key'):
+            display_text = str(node.route_key)
+            if hasattr(node, 'frequency'):
+                display_text += f"\n(f:{node.frequency})"
+        elif hasattr(node, 'key'):
+            display_text = str(node.key)
+
+        ax.text(x, y, display_text, ha='center', va='center',
+               fontsize=9, fontweight='bold', zorder=4) # Adjusted fontsize for potentially longer text
+
+        # Draw balance factor if available (visualizer calculates it for its own nodes)
+        # For external nodes, it might not be present.
+        balance_factor_text = ""
+        if hasattr(node, 'balance_factor'):
+            balance_factor_text = f'BF:{node.balance_factor}'
+        elif hasattr(node, '_balance_factor'): # If it's an AVLTree node and method exists
+            # This won't work as _balance_factor needs the tree instance context
+            pass
+
         ax.text(x + self.node_radius + 0.1, y + self.node_radius + 0.1, 
-               f'BF:{node.balance_factor}', ha='left', va='bottom', 
+               balance_factor_text, ha='left', va='bottom',
                fontsize=8, color='red', fontweight='bold', zorder=4)
         
         # Draw height
@@ -383,13 +399,13 @@ def _inorder_traversal(self, node, result):
     """Perform inorder traversal of the tree"""
     if node:
         self._inorder_traversal(node.left, result)
-        result.append(node.key)
+        result.append(node.route_key if hasattr(node, 'route_key') else node.key)
         self._inorder_traversal(node.right, result)
 
 def _preorder_traversal(self, node, result):
     """Perform preorder traversal of the tree"""
     if node:
-        result.append(node.key)
+        result.append(node.route_key if hasattr(node, 'route_key') else node.key)
         self._preorder_traversal(node.left, result)
         self._preorder_traversal(node.right, result)
 
@@ -398,7 +414,7 @@ def _postorder_traversal(self, node, result):
     if node:
         self._postorder_traversal(node.left, result)
         self._postorder_traversal(node.right, result)
-        result.append(node.key)
+        result.append(node.route_key if hasattr(node, 'route_key') else node.key)
 
 # Add these methods to the AVLTreeVisualizer class
 AVLTreeVisualizer._delete = _delete
