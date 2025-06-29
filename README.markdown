@@ -66,8 +66,6 @@ Una vez que el entorno virtual esté activado, instala todas las librerías nece
 pip install -r requirements.txt
 ```
 
-*(Asegúrate de tener un archivo `requirements.txt` en tu repositorio).*
-
 -----
 
 ## Cómo Ejecutar la Aplicación
