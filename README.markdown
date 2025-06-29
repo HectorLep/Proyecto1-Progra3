@@ -1,6 +1,3 @@
-De acuerdo. He actualizado la sección "Clonar el Repositorio" en el `README.md` con el enlace que proporcionaste y he eliminado la nota.
-
-Aquí tienes la versión final y actualizada.
 
 # 🚁 Simulador de Logística con Drones - Fase 2
 
