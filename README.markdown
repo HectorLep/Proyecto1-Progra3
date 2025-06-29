@@ -1,3 +1,7 @@
+De acuerdo. He actualizado la sección "Clonar el Repositorio" en el `README.md` con el enlace que proporcionaste y he eliminado la nota.
+
+Aquí tienes la versión final y actualizada.
+
 # 🚁 Simulador de Logística con Drones - Fase 2
 
 ### Universidad Católica de Temuco
@@ -32,8 +36,6 @@ Sigue estos pasos para configurar y ejecutar el proyecto en un entorno local.
 git clone https://github.com/HectorLep/Proyecto1-Progra3.git
 cd Proyecto1-Progra3
 ```
-
-*(Nota: Reemplaza la URL por la de tu repositorio final si es diferente).*
 
 ### 2\. Crear y Activar un Entorno Virtual
 
