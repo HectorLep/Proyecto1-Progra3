@@ -1,49 +1,67 @@
-from .simulation_initializer import SimulationInitializer
-from domain.ruta import RouteManager, RouteTracker, RouteOptimizer  # Añadido para manejar rutas
-from tda.avl import AVL  # Corregido import de AVL
-from tda.mapa_hash import HashMap  # Corregido import de HashMap
+from domain.ruta import RouteManager, RouteTracker, RouteOptimizer
+from tda.avl import AVLTree # Changed
+from tda.mapa_hash import HashMap
+from model.graph import Graph # Added for graph initialization placeholder
 
 class Simulation:
     def __init__(self):
-        self.initializer = SimulationInitializer()
+        # self.initializer = SimulationInitializer() # Removed
         self.route_manager = None
-        self.route_tracker = None
+        self.route_tracker = RouteTracker() # Initialize here
         self.route_optimizer = None
         self.graph = None
-        self.route_avl = AVL()  # AVL para gestionar las rutas
+        self.route_avl = AVLTree() # Changed
         self.is_initialized = False
         
-    def initialize_simulation(self, n_nodes=15, m_edges=20):
+    def initialize_simulation(self, n_nodes=15, m_edges=20, num_orders=10): # Added num_orders for consistency
         try:
             if n_nodes > 150:
                 raise ValueError("Número máximo de nodos: 150")
-            if m_edges < n_nodes - 1:
-                raise ValueError(f"Mínimo {n_nodes - 1} aristas para garantizar conectividad")
-                
-            # Generar grafo conectado
-            self.graph = self.initializer.generate_connected_graph(n_nodes, m_edges)
-            role_distribution = self.initializer.assign_node_roles()
-            
-            # Inicializar gestores de rutas
+            self.graph = Graph(directed=False) # Assuming undirected for now, adjust as needed
+            # TODO: Call self.graph.generate_random_graph(n_nodes, m_edges) in Step 2
+            # TODO: Assign roles in Step 2
+
+    
+            if not list(self.graph.vertices()): # If graph is empty (no generate_random_graph yet)
+                 # Add a dummy vertex if empty, so RouteManager can be initialized.
+                 # This is a temporary workaround.
+                if n_nodes > 0:
+                    self.graph.insert_vertex("temp_N0")
+
+
             self.route_manager = RouteManager(self.graph)
-            self.route_tracker = RouteTracker()  # Seguimiento de rutas
-            self.route_optimizer = RouteOptimizer(self.route_tracker, self.route_manager)  # Optimización de rutas
+            # self.route_tracker = RouteTracker() # Moved to __init__
+            self.route_optimizer = RouteOptimizer(self.route_tracker, self.manager) # manager should be self.route_manager
             
-            self.is_initialized = True
+            self.is_initialized = True # This might be premature if graph is not fully ready
             
-            return {"success": True, "graph": self.graph, "role_distribution": role_distribution}
+            # role_distribution will be properly set in Step 2
+            return {"success": True, "graph": self.graph, "role_distribution": {}}
             
         except Exception as e:
             return {"success": False, "error": str(e)}
     
-    def run_simulation(self):
+    def run_simulation(self, num_orders=10): # Added num_orders, assuming it's passed from dashboard
         if not self.is_initialized:
             return {"success": False, "message": "Simulación no inicializada"}
             
         try:
-            # Procesar rutas con el RouteManager
-            self.route_optimizer.analyze_route_patterns()  # Analizar y optimizar las rutas
-            self._store_routes_in_avl()  # Guardamos las rutas en AVL
+
+            if not self.route_tracker.get_route_history() and self.graph and list(self.graph.vertices()):
+                # Create some dummy routes if graph has nodes
+                nodes = list(v.element() for v in self.graph.vertices())
+                if len(nodes) >= 2:
+                    dummy_route1 = Route([nodes[0], nodes[1]], 10, [], [])
+                    self.route_tracker.track_route(dummy_route1)
+                    if len(nodes) >= 3:
+                         dummy_route2 = Route([nodes[0], nodes[1], nodes[2]], 20, [], [])
+                         self.route_tracker.track_route(dummy_route2)
+                         self.route_tracker.track_route(dummy_route1) # Track route1 again for frequency
+
+
+            if self.route_optimizer: # Ensure optimizer is initialized
+                 self.route_optimizer.analyze_route_patterns()
+            self._store_routes_in_avl()
             
             return {"success": True, "message": "Simulación completada"}
             
@@ -51,23 +69,31 @@ class Simulation:
             return {"success": False, "error": str(e)}
     
     def _store_routes_in_avl(self):
-        """Registra las rutas procesadas en el AVL para análisis posterior"""
-        route_frequency = self.route_tracker.get_most_frequent_routes()
-        for route_str, frequency in route_frequency:
-            self.route_avl.insert(route_str, frequency)
+        """Registra las rutas procesadas en el AVL para análisis posterior."""
+        if not self.route_tracker:
+            print("Error: RouteTracker no inicializado en _store_routes_in_avl.")
+            return
+
+        # Iterate through individual route occurrences from history
+        for route_record in self.route_tracker.get_route_history():
+            route_str = route_record['route']
+            self.route_avl.insert(route_str)
     
     def get_simulation_stats(self):
-        if not self.is_initialized:
-            return {"error": "Simulación no inicializada"}
+        if not self.is_initialized: # Or check if graph has been generated
+            return {"error": "Simulación no inicializada o grafo no generado"}
             
         try:
-            route_frequency = self.route_tracker.get_most_frequent_routes()
+            route_frequency_from_tracker = self.route_tracker.get_most_frequent_routes()
             node_frequency = self.route_tracker.get_node_visit_stats()
             
+            avl_routes_with_freq = self.route_avl.inorder_traversal()
+
             return {
-                "route_frequency": route_frequency,
+                "route_frequency_tracker": route_frequency_from_tracker,
                 "node_frequency": node_frequency,
-                "avl_routes": self.route_avl.get_all_routes(),
+                "avl_routes_sorted_by_freq": self.route_avl.get_frequent_routes(count=len(avl_routes_with_freq)),
+                "avl_raw_inorder": avl_routes_with_freq
             }
             
         except Exception as e:
@@ -76,5 +102,5 @@ class Simulation:
     def get_graph(self):
         return self.graph
     
-    def get_route_avl(self):
+    def get_route_avl(self): # This method returns the AVLTree instance
         return self.route_avl
