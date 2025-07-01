@@ -1,18 +1,8 @@
 import streamlit as st
 import pandas as pd
 from model.graph import Graph
-<<<<<<< Updated upstream
-from domain.cliente import Client
-from domain.orden import Order
-from domain.ruta import Route
-from tda.avl import avl_insert
-from tda.mapa_hash import HashMap
-from sim.rutas import RouteManager, RouteTracker, RouteOptimizer, OrderSimulator
-import random
-=======
 from tda.avl import AVLTree 
 from sim.rutas import RouteManager, RouteTracker, RouteOptimizer, OrderSimulator 
->>>>>>> Stashed changes
 import time
 from visual.AVLVisualizer import AVLTreeVisualizer
 from visual.AVLVisualizer import get_tree_traversals
@@ -21,18 +11,11 @@ from visual.networkx_adapter import crear_visualizacion_red
 from visual.AVLVisualizer import create_pie_chart, create_bar_chart
 import io
 import sys
-<<<<<<< Updated upstream
-
-# Remove the st.set_page_config() call from here since it's already in app.py
-
-# Inicializar estado de sesión para persistencia de pestañas
-=======
 from api.shared_simulation_state import state_instance
 from visual.map.map_builder import create_empty_map, add_nodes_to_map, add_edges_to_map, highlight_path_on_map, highlight_mst_on_map
 from visual.map.flight_summary import display_route_details
 from .report_generator import generate_pdf_report_content, get_report_filename
 
->>>>>>> Stashed changes
 if 'active_tab' not in st.session_state:
     st.session_state.active_tab = 0
 
@@ -71,24 +54,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-<<<<<<< Updated upstream
-@st.cache_data
-def ejecutar_simulacion(num_nodos, num_aristas, num_ordenes):
-    """Ejecutar la simulación principal y retornar resultados"""
-    g = Graph(directed=True)
-    g.generate_random_graph(num_nodes=num_nodos, num_edges=num_aristas)
-    
-    manager = RouteManager(g)
-    tracker = RouteTracker()
-    optimizer = RouteOptimizer(tracker, manager)
-    simulator = OrderSimulator(manager, tracker)
-    
-    # Capturar salida de la simulación
-    old_stdout = sys.stdout
-    sys.stdout = captured_output = io.StringIO()
-    
-    simulator.process_orders(num_ordenes)
-=======
 def ejecutar_simulacion_completa(num_nodos, num_aristas, num_ordenes):
     """Ejecutar la simulación principal y retornar todos los resultados relevantes."""
 
@@ -105,22 +70,11 @@ def ejecutar_simulacion_completa(num_nodos, num_aristas, num_ordenes):
 
     order_simulator.generate_clients(g) # Generates clients based on graph nodes
     order_simulator.process_orders(num_ordenes) # Simulates orders
->>>>>>> Stashed changes
     
+    # 5. Restore stdout and get simulation log
     sys.stdout = old_stdout
-    salida_simulacion = captured_output.getvalue()
+    salida_simulacion_log = captured_output.getvalue()
     
-<<<<<<< Updated upstream
-    # Obtener estadísticas
-    patrones_ruta = optimizer.analyze_route_patterns()
-    reportes_optimizacion = optimizer.get_optimization_report()
-    
-    # Estadísticas del grafo
-    estadisticas_nodos = {
-        'almacen': len([v for v in g.vertices() if v.type() == 'warehouse']),
-        'recarga': len([v for v in g.vertices() if v.type() == 'recharge']),
-        'cliente': len([v for v in g.vertices() if v.type() == 'client'])
-=======
     # 6. Create and populate AVL Tree for route analytics
     avl_tree_rutas = AVLTree()
     route_history = route_tracker.get_route_history()
@@ -149,23 +103,8 @@ def ejecutar_simulacion_completa(num_nodos, num_aristas, num_ordenes):
         "orders_list": order_simulator.orders,   # List of Order domain objects
         "simulation_summary": simulation_summary_text,
         "node_counts": node_counts_by_type # For display in Sim tab
->>>>>>> Stashed changes
     }
-    
-    return g, patrones_ruta, reportes_optimizacion, salida_simulacion, tracker, estadisticas_nodos
 
-<<<<<<< Updated upstream
-def crear_avl_desde_rutas(tracker):
-    """Crear un árbol AVL con las rutas más frecuentes"""   
-    avl_root = None
-    rutas_frecuentes = tracker.get_most_frequent_routes(15)  # Obtener más rutas para el AVL
-    
-    for ruta_hash, frecuencia in rutas_frecuentes:
-        # Usar el hash de la ruta como clave para el AVL
-        avl_root = avl_insert(avl_root, ruta_hash)
-    
-    return avl_root
-=======
 def crear_avl_desde_rutas(tracker: RouteTracker): # This function might be deprecated
     """Crear un árbol AVL con las rutas. (Potentially deprecated if AVL comes from session_state)"""
     avl_tree = AVLTree()
@@ -178,7 +117,6 @@ def crear_avl_desde_rutas(tracker: RouteTracker): # This function might be depre
         avl_tree.insert(route_str)
 
     return avl_tree # Return the AVLTree instance
->>>>>>> Stashed changes
 
 def renderizar_pestana_simulacion(parametros, estadisticas_nodos, salida_simulacion):
     """Renderizar la pestaña de resultados de simulación"""
@@ -215,78 +153,15 @@ def renderizar_pestana_simulacion(parametros, estadisticas_nodos, salida_simulac
     with col2:
         # Gráfico de barras
         fig_bar = create_bar_chart(
-            x_data=['Almacén', 'Recarga', 'Cliente'],
-            y_data=list(estadisticas_nodos.values()),
+            x_data=['Almacén', 'Recarga', 'Cliente'], # Use keys from node_counts for labels
+            y_data=list(estadisticas_nodos.values()), # Ensure order matches labels
             title="Cantidad de Nodos por Tipo",
-            colors=['#8B4513', '#FFA500', '#32CD32'],
+            colors=['#8B4513', '#FFA500', '#32CD32'], # Colors should map to warehouse, recharge, client
             xlabel="Tipo de Nodo",
             ylabel="Cantidad"
         )
         st.pyplot(fig_bar)
 
-<<<<<<< Updated upstream
-def renderizar_pestana_red(grafo):
-    """Renderizar la pestaña de exploración de red"""
-    st.header("🌐 Visualización de la Red")
-    
-    # Inicializar estado de cálculo de rutas
-    if 'ruta_calculada' not in st.session_state:
-        st.session_state.ruta_calculada = None
-    if 'mensaje_ruta' not in st.session_state:
-        st.session_state.mensaje_ruta = ""
-    
-    # Crear y mostrar visualización con Matplotlib
-    ruta_resaltada = st.session_state.ruta_calculada.path if st.session_state.ruta_calculada else None
-    fig = crear_visualizacion_red(grafo, ruta_destacada=ruta_resaltada)
-    st.pyplot(fig)
-    
-    # Panel de cálculo de rutas
-    st.subheader("🧭 Calcular Ruta")
-    
-    # Obtener nodos disponibles
-    almacenes = [v.element() for v in grafo.vertices() if v.type() == 'warehouse']
-    clientes = [v.element() for v in grafo.vertices() if v.type() == 'client']
-    
-    # Crear un formulario para evitar re-ejecución en cada selección
-    with st.form("formulario_calculo_ruta"):
-        col1, col2, col3 = st.columns(3)
-        
-        with col1:
-            nodo_origen = st.selectbox("Nodo de Origen", options=almacenes, key="origen_form")
-        with col2:
-            nodo_destino = st.selectbox("Nodo de Destino", options=clientes, key="destino_form")
-        with col3:
-            boton_calcular = st.form_submit_button("🔍 Calcular Ruta", type="secondary")
-    
-    # Manejar cálculo de ruta
-    if boton_calcular:
-        if nodo_origen and nodo_destino:
-            manager = RouteManager(grafo)
-            es_valido, mensaje_error = validar_calculo_ruta(grafo, nodo_origen, nodo_destino)
-            if not es_valido:
-                st.session_state.mensaje_ruta = f"❌ {mensaje_error}"
-                st.session_state.ruta_calculada = None
-            else:
-                ruta = manager.find_route_with_recharge(nodo_origen, nodo_destino)
-                if ruta:
-                    st.session_state.ruta_calculada = ruta
-                    camino_ruta = ' → '.join(ruta.path)
-                    st.session_state.mensaje_ruta = f"✅ Ruta encontrada: {camino_ruta}\n💰 Costo total: {ruta.total_cost}"
-                    if ruta.recharge_stops:
-                        st.session_state.mensaje_ruta += f"\n🔋 Paradas de recarga: {', '.join(ruta.recharge_stops)}"
-                else:
-                    st.session_state.mensaje_ruta = "❌ ¡No se encontró una ruta válida!"
-                    st.session_state.ruta_calculada = None
-            # Forzar re-ejecución para actualizar visualización
-            st.rerun()
-    
-    # Mostrar mensaje de ruta
-    if st.session_state.mensaje_ruta:
-        if "✅" in st.session_state.mensaje_ruta:
-            st.success(st.session_state.mensaje_ruta)
-        else:
-            st.error(st.session_state.mensaje_ruta)
-=======
 
 # Imports for Folium map tab
 from streamlit_folium import st_folium
@@ -399,7 +274,6 @@ def renderizar_pestana_explorar_red(grafo: Graph, tracker: RouteTracker, avl_tre
 
 
 def renderizar_pestana_clientes_ordenes(tracker):
->>>>>>> Stashed changes
 
 # --- CÓDIGO A INSERTAR ---
     st.markdown("---")
@@ -440,31 +314,9 @@ def renderizar_pestana_clientes_ordenes(tracker):
             ylabel='Total Órdenes'
         )
         st.pyplot(fig_clientes)
-    
-    # Estadísticas de órdenes
-    estadisticas_ordenes = tracker.get_order_stats()
-    if estadisticas_ordenes:
-        st.subheader("💰 Órdenes por Costo")
-        datos_ordenes = [(oid, order.total_cost, order.status) for oid, order in estadisticas_ordenes[:10]]
-        df_ordenes = pd.DataFrame(datos_ordenes, columns=['ID Orden', 'Costo Total', 'Estado'])
-        st.dataframe(df_ordenes, use_container_width=True)
+    else:
+        st.info("No hay estadísticas de clientes disponibles. Ejecute una simulación.")
         
-<<<<<<< Updated upstream
-        # Gráfico de costo de órdenes
-        if len(df_ordenes) > 0:
-            fig_ordenes = create_bar_chart(
-                x_data=df_ordenes['ID Orden'].astype(str),
-                y_data=df_ordenes['Costo Total'],
-                title='Top 10 Órdenes por Costo',
-                colors=['#28a745' if estado == 'Delivered' else '#dc3545' 
-                       for estado in df_ordenes['Estado']],
-                xlabel='ID Orden',
-                ylabel='Costo Total'
-            )
-            st.pyplot(fig_ordenes)
-
-def renderizar_pestana_analisis_rutas(tracker):
-=======
     st.markdown("---") # Separator
 
     # Lista de Órdenes (raw data from st.session_state.sim_orders)
@@ -491,9 +343,8 @@ def renderizar_pestana_analisis_rutas(tracker):
         st.info("No hay órdenes para mostrar. Ejecute una simulación.")
 
 def renderizar_pestana_analisis_rutas(tracker: RouteTracker, avl_tree_obj: AVLTree): # Added avl_tree_obj
->>>>>>> Stashed changes
     """Renderizar la pestaña de análisis de rutas con visualización AVL"""
-    st.header("📊 Análisis de Rutas")
+    st.header("📊 Analítica de Rutas")
     
     # Mostrar información general de rutas
     st.subheader("🛣️ Información General de Rutas")
@@ -513,78 +364,44 @@ def renderizar_pestana_analisis_rutas(tracker: RouteTracker, avl_tree_obj: AVLTr
     st.subheader("🌳 Árbol AVL de Rutas")
     
     # Crear el árbol AVL con las rutas
-    avl_root = crear_avl_desde_rutas(tracker)
+    avl_tree_instance = crear_avl_desde_rutas(tracker) # Now returns AVLTree instance
     
-    if avl_root is not None:
+    if avl_tree_instance and avl_tree_instance.root is not None: # Check if tree has a root
         # Crear visualizador AVL
-<<<<<<< Updated upstream
-        visualizador = AVLTreeVisualizer()
-        
-        # Convertir las rutas frecuentes a claves para el árbol de demostración
-        rutas_keys = [ruta_hash for ruta_hash, _ in rutas_frecuentes[:10]]  # Usar solo los primeros 10
-        
-        # Crear árbol de muestra con las claves de ruta
-        if rutas_keys:
-            arbol_muestra = visualizador.create_sample_tree(rutas_keys)
-            
-            # Crear la visualización del árbol
-            fig_avl = visualizador.visualize_tree(arbol_muestra, title="Árbol AVL de Rutas Frecuentes")
-=======
         visualizador = AVLTreeVisualizer() # Assuming AVLTreeVisualizer can take the root node
         actual_avl_root_for_viz = avl_tree_instance.get_root_for_visualizer()
 
         if actual_avl_root_for_viz:
             fig_avl = visualizador.visualize_tree(actual_avl_root_for_viz, title="Árbol AVL de Rutas (Real)")
->>>>>>> Stashed changes
             
             if fig_avl is not None:
                 st.pyplot(fig_avl)
                 
-                # Información adicional sobre el AVL
+                # Información adicional sobre el AVL (directamente desde AVLTree instance if possible)
                 col1, col2, col3 = st.columns(3)
                 
                 with col1:
-                    altura_arbol = visualizador._get_height(arbol_muestra)
+                    # Height of the actual tree
+                    altura_arbol = visualizador._get_height(actual_avl_root_for_viz)
                     st.metric("Altura del Árbol", altura_arbol)
                 
                 with col2:
-                    def count_nodes(node):
+                    # Count nodes in the actual tree
+                    def count_nodes(node): # This helper can stay
                         if not node:
                             return 0
                         return 1 + count_nodes(node.left) + count_nodes(node.right)
-                    
-                    total_nodos = count_nodes(arbol_muestra)
+                    total_nodos = count_nodes(actual_avl_root_for_viz)
                     st.metric("Total de Nodos", total_nodos)
                 
                 with col3:
-<<<<<<< Updated upstream
-                    factor_balance = arbol_muestra.balance_factor if arbol_muestra else 0
-=======
                     # Balance factor of the root of the actual tree
                     factor_balance = actual_avl_root_for_viz.balance_factor if hasattr(actual_avl_root_for_viz, 'balance_factor') else visualizador._get_height(actual_avl_root_for_viz.left) - visualizador._get_height(actual_avl_root_for_viz.right)                    # visualizer._get_balance might be safer if balance_factor is not always set on raw nodes by visualizer
->>>>>>> Stashed changes
                     st.metric("Factor de Balance (raíz)", factor_balance)
                 
                 # Mostrar información detallada del árbol
                 with st.expander("🔍 Información Detallada del Árbol AVL"):
                     st.markdown("**Características del Árbol AVL:**")
-<<<<<<< Updated upstream
-                    st.markdown("- **Balanceado**: El árbol mantiene el balance automáticamente")
-                    st.markdown("- **Clave**: Hash de ruta (identificador único)")
-                    st.markdown("- **Valor**: Frecuencia de uso de la ruta")
-                    st.markdown("- **Ordenamiento**: Por hash de ruta (orden lexicográfico)")
-                    
-                    # Mostrar recorridos del árbol
-                    st.markdown("**Recorridos del Árbol:**")
-                    
-                    # Obtener recorridos usando el visualizador
-                    traversals = get_tree_traversals(visualizador, arbol_muestra)
-                    
-                    # Recorrido inorden
-                    st.text(f"Inorden: {traversals['inorder']}")
-                    
-                    # Recorrido preorden
-=======
                     st.markdown("- **Balanceado**: El árbol mantiene el balance automáticamente.")
                     st.markdown("- **Clave**: String de Ruta (ej: 'N1->N2->N3').")
                     st.markdown("- **Valor**: Frecuencia de uso de la ruta.")
@@ -592,7 +409,6 @@ def renderizar_pestana_analisis_rutas(tracker: RouteTracker, avl_tree_obj: AVLTr
                     st.markdown("**Recorridos del Árbol (Primeros 50 Nodos):**")
                     traversals = get_tree_traversals(visualizador, actual_avl_root_for_viz)                    
                     st.text(f"Inorden (claves): {traversals['inorder']}")                    
->>>>>>> Stashed changes
                     st.text(f"Preorden: {traversals['preorder']}")
                     st.text(f"Postorden: {traversals['postorder']}")
             else:
@@ -735,12 +551,6 @@ def main():
         st.metric("Nodos Cliente Estimados", f"{clientes_derivados} (60% de {num_nodos})")
         
         boton_ejecutar = st.button("🚀 Iniciar Simulación", type="primary", use_container_width=True)
-<<<<<<< Updated upstream
-    
-    # Inicializar estado de sesión para datos de simulación
-    if 'datos_simulacion' not in st.session_state:
-        st.session_state.datos_simulacion = None
-=======
 
     if 'sim_graph' not in st.session_state: st.session_state.sim_graph = None
     if 'sim_tracker' not in st.session_state: st.session_state.sim_tracker = None
@@ -751,33 +561,25 @@ def main():
     if 'sim_summary' not in st.session_state: st.session_state.sim_summary = ""
     if 'sim_node_counts' not in st.session_state: st.session_state.sim_node_counts = {}
     if 'sim_params' not in st.session_state: st.session_state.sim_params = {} # For num_nodos, etc.
->>>>>>> Stashed changes
     
     # Contenido principal
     if boton_ejecutar:
-        with st.spinner("Inicializando simulación..."):
-            # Ejecutar simulación y guardar en estado de sesión
-            st.session_state.datos_simulacion = ejecutar_simulacion(num_nodos, num_aristas, num_ordenes)
-            st.session_state.parametros_simulacion = {
-                'num_nodos': num_nodos,
-                'num_aristas': num_aristas,
-                'num_ordenes': num_ordenes
+        with st.spinner("🚀 Inicializando y ejecutando simulación completa... Por favor espere."):
+            sim_results = ejecutar_simulacion_completa(num_nodos, num_aristas, num_ordenes)
+
+            # Store results in session state
+            st.session_state.sim_graph = sim_results["graph"]
+            st.session_state.sim_tracker = sim_results["route_tracker"]
+            st.session_state.sim_avl_tree = sim_results["avl_tree"]
+            st.session_state.sim_log = sim_results["simulation_log"]
+            st.session_state.sim_clients = sim_results["clients_list"]
+            st.session_state.sim_orders = sim_results["orders_list"]
+            st.session_state.sim_summary = sim_results["simulation_summary"]
+            st.session_state.sim_node_counts = sim_results["node_counts"]
+
+            st.session_state.sim_params = {
+                'num_nodos': num_nodos, 'num_aristas': num_aristas, 'num_ordenes': num_ordenes
             }
-<<<<<<< Updated upstream
-            # Add the following lines here:
-            st.session_state.ruta_calculada = None
-            st.session_state.mensaje_ruta = ""
-    
-    # Verificar si existen datos de simulación
-    if st.session_state.datos_simulacion is not None:
-        grafo, patrones_ruta, reportes_optimizacion, salida_simulacion, tracker, estadisticas_nodos = st.session_state.datos_simulacion
-        parametros = st.session_state.parametros_simulacion
-        
-        # Navegación por pestañas con estado de sesión
-        nombres_pestanas = ["🎯 Ejecutar Simulación", "🌐 Explorar Red", "👥 Clientes y Órdenes", "📊 Análisis de Rutas", "📈 Estadísticas"]
-        
-        # Crear pestañas pero manejar selección manualmente
-=======
 
             # Update shared state for API
             state_instance.update_data(
@@ -803,7 +605,6 @@ def main():
         patrones_ruta = []
         reportes_optimizacion = []
         nombres_pestanas = ["🎯 Simulación Actual", "🌐 Explorar Red", "👥 Clientes y Órdenes", "📊 Analítica de Rutas", "📈 Estadísticas Generales"]
->>>>>>> Stashed changes
         pestana_seleccionada = st.selectbox("Seleccionar Pestaña:", nombres_pestanas, 
                                            index=st.session_state.active_tab,
                                            key="selector_pestana")
@@ -815,18 +616,19 @@ def main():
         st.markdown("---")
         
         # Renderizar pestaña apropiada
-        if st.session_state.active_tab == 0:  # Ejecutar Simulación
-            renderizar_pestana_simulacion(parametros, estadisticas_nodos, salida_simulacion)
+        if st.session_state.active_tab == 0:  # Simulación Actual
+            renderizar_pestana_simulacion(
+                parametros, # from st.session_state.sim_params
+                st.session_state.sim_node_counts, # from st.session_state.sim_node_counts
+                salida_simulacion # from st.session_state.sim_log
+            )
         elif st.session_state.active_tab == 1:  # Explorar Red
-            renderizar_pestana_red(grafo)
+            renderizar_pestana_explorar_red(
+                st.session_state.sim_graph,
+                st.session_state.sim_tracker,
+                st.session_state.sim_avl_tree # Pass the AVL tree instance
+            )
         elif st.session_state.active_tab == 2:  # Clientes y Órdenes
-<<<<<<< Updated upstream
-            renderizar_pestana_clientes_ordenes(tracker)
-        elif st.session_state.active_tab == 3:  # Análisis de Rutas
-            renderizar_pestana_analisis_rutas(tracker)
-        elif st.session_state.active_tab == 4:  # Estadísticas
-            renderizar_pestana_estadisticas(grafo, patrones_ruta, reportes_optimizacion, salida_simulacion)
-=======
             renderizar_pestana_clientes_ordenes(
                 st.session_state.sim_tracker # This tab uses tracker for client/order stats
             )
@@ -842,7 +644,6 @@ def main():
                 reportes_optimizacion, # Placeholder
                 st.session_state.sim_log
             )
->>>>>>> Stashed changes
     
     else:
         # Pantalla inicial
