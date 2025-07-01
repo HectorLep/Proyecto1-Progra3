@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import networkx as nx
-from model.graph import Graph
 
 def grafo_a_networkx(grafo):
     """Convertir Grafo personalizado a NetworkX DiGraph"""
