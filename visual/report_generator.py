@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 import io
 from datetime import datetime
 import matplotlib
@@ -5,6 +6,17 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 
+=======
+# visual/report_generator.py (Versión Reorganizada y Mejorada)
+
+import io
+from datetime import datetime
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import pandas as pd
+
+>>>>>>> Stashed changes
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import letter
