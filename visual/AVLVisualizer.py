@@ -1,8 +1,5 @@
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import numpy as np
-from matplotlib.patches import FancyBboxPatch
-import math
+
 
 def create_pie_chart(values, labels, title, colors=None):
     """Create a pie chart using matplotlib"""
