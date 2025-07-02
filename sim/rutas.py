@@ -1,6 +1,3 @@
-# sim/rutas.py (Versión Original Optimizada y Corregida)
-
-import heapq
 from datetime import datetime
 import random
 import time
