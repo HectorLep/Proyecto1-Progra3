@@ -4,14 +4,13 @@ class Vertex:
     """Lightweight vertex structure for a graph."""
     __slots__ = '_element', '_type', '_latitude', '_longitude'
 
-    # Temuco bounding box: Lat (-38.9, -38.5), Lon (-72.8, -72.4)
-    MIN_LAT, MAX_LAT = -38.75, -38.72  # Rango de Latitud súper acotado al centro
-    MIN_LON, MAX_LON = -72.62, -72.57  # Rango de Longitud súper acotado al centro
+    MIN_LAT, MAX_LAT = -38.75, -38.72  # Cambiar para la creacion de nodos en el mapa 
+    MIN_LON, MAX_LON = -72.62, -72.57  # Cambiar para la creacion de nodos en el mapax2
 
     def __init__(self, element, type=None, latitude=None, longitude=None):
         """Initialize vertex with element, optional type, and geo-coordinates."""
         self._element = element
-        self._type = type  # Node type: 'warehouse', 'recharge', or 'client'
+        self._type = type  
 
         if latitude is None:
             self._latitude = random.uniform(Vertex.MIN_LAT, Vertex.MAX_LAT)

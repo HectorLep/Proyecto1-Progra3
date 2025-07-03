@@ -1,14 +1,16 @@
 from domain.ruta import RouteManager, RouteTracker, RouteOptimizer
-from tda.avl import AVLTree
-from model.graph import Graph 
+from tda.avl import AVLTree # Changed
+from tda.mapa_hash import HashMap
+from model.graph import Graph # Added for graph initialization placeholder
 
 class Simulation:
     def __init__(self):
+        # self.initializer = SimulationInitializer() # Removed
         self.route_manager = None
-        self.route_tracker = RouteTracker()
+        self.route_tracker = RouteTracker() # Initialize here
         self.route_optimizer = None
         self.graph = None
-        self.route_avl = AVLTree()
+        self.route_avl = AVLTree() # Changed
         self.is_initialized = False
         
     def initialize_simulation(self, n_nodes=15, m_edges=20, num_orders=10): # Added num_orders for consistency

@@ -1,19 +1,15 @@
-# visual/report_generator.py (Versión Reorganizada y Mejorada)
-
 import io
 from datetime import datetime
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
-
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.lib import colors
 
-# --- FUNCIONES AUXILIARES PARA GRÁFICOS Y TABLAS ---
 
 def create_styled_table(data, col_widths=None):
     """Crea una tabla de ReportLab con estilos estandarizados."""
@@ -78,8 +74,6 @@ def save_chart_to_buffer(fig):
     return Image(img_buffer, width=6*inch, height=4*inch)
 
 
-# --- FUNCIÓN PRINCIPAL DEL GENERADOR DE PDF ---
-
 def generate_pdf_report_content(simulation_data: dict) -> bytes:
     """
     Genera un informe PDF con una estructura específica:
@@ -95,12 +89,7 @@ def generate_pdf_report_content(simulation_data: dict) -> bytes:
     styles.add(ParagraphStyle(name='ReportTitle', fontSize=22, alignment=1, spaceAfter=0.5*inch, textColor=colors.HexColor('#1E3C72')))
     styles.add(ParagraphStyle(name='SectionTitle', fontSize=16, alignment=0, spaceBefore=0.3*inch, spaceAfter=0.2*inch, textColor=colors.HexColor('#2A5298')))
     styles.add(ParagraphStyle(name='OrderText', leftIndent=12, spaceAfter=6))
-
-    # --- 1. TÍTULO ---
     story.append(Paragraph("Reporte de Simulación de Logística con  Drones", styles['ReportTitle']))
-
-
-    # --- 2. TABLA DE CLIENTES ---
     story.append(Paragraph("Resumen de Clientes Registrados", styles['SectionTitle']))
     clients = simulation_data.get("clients", [])
     if clients:
@@ -109,7 +98,7 @@ def generate_pdf_report_content(simulation_data: dict) -> bytes:
             client_data.append([
                 client.id,
                 client.name,
-                client.type, # <-- CORREGIDO: ahora usa el tipo real del cliente
+                client.type,
                 str(client.total_orders)
             ])
         client_table = create_styled_table(client_data, col_widths=[1*inch, 2.5*inch, 1.5*inch, 1*inch])
@@ -118,8 +107,6 @@ def generate_pdf_report_content(simulation_data: dict) -> bytes:
         story.append(Paragraph("No se generaron clientes en esta simulación.", styles['Normal']))
     
     story.append(Spacer(1, 0.3 * inch))
-
-    # --- 3. LISTA DE ÓRDENES ---
     story.append(Paragraph("Bitácora de Órdenes Procesadas", styles['SectionTitle']))
     orders = simulation_data.get("orders", [])
     if orders:
@@ -135,13 +122,9 @@ def generate_pdf_report_content(simulation_data: dict) -> bytes:
     else:
         story.append(Paragraph("No se procesaron órdenes en esta simulación.", styles['Normal']))
 
-    # Salto de página para los gráficos
     story.append(PageBreak())
-
-    # --- 4. GRÁFICOS ---
     story.append(Paragraph("Análisis Gráfico de la Simulación", styles['SectionTitle']))
     
-    # Gráfico 1: Distribución de Nodos
     graph_obj = simulation_data.get("graph")
     if graph_obj:
         node_dist_chart = create_pie_chart(graph_obj)
@@ -149,32 +132,27 @@ def generate_pdf_report_content(simulation_data: dict) -> bytes:
             story.append(node_dist_chart)
             story.append(Spacer(1, 0.2 * inch))
 
-    # Gráficos 2, 3 y 4: Visitas a Nodos
     tracker = simulation_data.get("route_tracker")
     if tracker:
         node_visits = tracker.get_node_visit_stats()
         
-        # Gráfico de Clientes más visitados
-        client_visits = [d for d in node_visits if "N" in d[0]] # Asumiendo que los clientes tienen 'N' en su ID
+        client_visits = [d for d in node_visits if "N" in d[0]] 
         client_chart = create_visits_bar_chart(client_visits, "Nodos de Cliente Más Visitados")
         if client_chart:
             story.append(client_chart)
             story.append(Spacer(1, 0.2 * inch))
 
-        # Gráfico de Estaciones de recarga más visitadas (Ejemplo, ajustar lógica de filtrado si es necesario)
-        recharge_visits = [d for d in node_visits if "R" in d[0] or d[1] < 5] # Placeholder filter
+        recharge_visits = [d for d in node_visits if "R" in d[0] or d[1] < 5] 
         recharge_chart = create_visits_bar_chart(recharge_visits, "Nodos de Recarga Más Visitados")
         if recharge_chart:
             story.append(recharge_chart)
             story.append(Spacer(1, 0.2 * inch))
         
-        # Gráfico de Almacenes más visitados (Ejemplo, ajustar lógica de filtrado si es necesario)
-        storage_visits = [d for d in node_visits if "W" in d[0] or d[1] < 3] # Placeholder filter
+        storage_visits = [d for d in node_visits if "W" in d[0] or d[1] < 3] 
         storage_chart = create_visits_bar_chart(storage_visits, "Nodos de Almacenamiento Más Visitados")
         if storage_chart:
             story.append(storage_chart)
     
-    # --- Construir el PDF ---
     doc.build(story)
     pdf_bytes = buffer.getvalue()
     buffer.close()

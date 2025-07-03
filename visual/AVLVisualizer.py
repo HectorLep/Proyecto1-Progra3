@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 
-
 def create_pie_chart(values, labels, title, colors=None):
     """Create a pie chart using matplotlib"""
     fig, ax = plt.subplots(figsize=(8, 6))
@@ -11,7 +10,6 @@ def create_pie_chart(values, labels, title, colors=None):
                                       colors=colors, startangle=90)
     ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
     
-    # Make percentage text bold and white
     for autotext in autotexts:
         autotext.set_color('white')
         autotext.set_fontweight('bold')
@@ -29,13 +27,11 @@ def create_bar_chart(x_data, y_data, title, colors=None, xlabel='', ylabel=''):
     ax.set_xlabel(xlabel, fontsize=12)
     ax.set_ylabel(ylabel, fontsize=12)
     
-    # Add value labels on bars
     for bar in bars:
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
                 f'{int(height)}', ha='center', va='bottom', fontweight='bold')
     
-    # Rotate x-axis labels if they're long
     if any(len(str(label)) > 8 for label in x_data):
         plt.xticks(rotation=45, ha='right')
     
@@ -50,7 +46,6 @@ def create_horizontal_bar_chart(x_data, y_data, title, color='#007bff'):
     ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
     ax.set_xlabel('Value', fontsize=12)
     
-    # Add value labels on bars
     for i, bar in enumerate(bars):
         width = bar.get_width()
         ax.text(width, bar.get_y() + bar.get_height()/2.,
@@ -252,7 +247,6 @@ class AVLTreeVisualizer:
                           ec='black', linewidth=2, zorder=3)
         ax.add_patch(circle)
         
-        # Draw key (route_key or key) and frequency if available
         display_text = ""
         if hasattr(node, 'route_key'):
             display_text = str(node.route_key)
@@ -262,15 +256,12 @@ class AVLTreeVisualizer:
             display_text = str(node.key)
 
         ax.text(x, y, display_text, ha='center', va='center',
-               fontsize=9, fontweight='bold', zorder=4) # Adjusted fontsize for potentially longer text
+               fontsize=9, fontweight='bold', zorder=4) 
 
-        # Draw balance factor if available (visualizer calculates it for its own nodes)
-        # For external nodes, it might not be present.
         balance_factor_text = ""
         if hasattr(node, 'balance_factor'):
             balance_factor_text = f'BF:{node.balance_factor}'
-        elif hasattr(node, '_balance_factor'): # If it's an AVLTree node and method exists
-            # This won't work as _balance_factor needs the tree instance context
+        elif hasattr(node, '_balance_factor'): 
             pass
 
         ax.text(x + self.node_radius + 0.1, y + self.node_radius + 0.1, 
