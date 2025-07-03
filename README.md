@@ -3,7 +3,7 @@
 
 ### Universidad Católica de Temuco
 
-**Facultad de Ingeniería - Departamento de Ingeniería Informática**\<br\>
+**Facultad de Ingeniería - Departamento de Ingeniería Informática**
 **INFO 1126 - Programación 3**
 
 -----
