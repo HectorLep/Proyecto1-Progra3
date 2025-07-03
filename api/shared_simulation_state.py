@@ -1,11 +1,6 @@
 import threading
 
 class SimulationState:
-    """
-    Una clase Singleton y thread-safe para gestionar el estado de la simulación.
-    Esta clase asegura que solo haya una instancia del estado y que el acceso
-    a los datos esté sincronizado para evitar condiciones de carrera.
-    """
     _instance = None
     _lock = threading.Lock()
 
@@ -45,7 +40,4 @@ class SimulationState:
                 "avl_tree": self._avl_tree,
                 "summary": self._summary
             }
-
-# --- Instancia Única (Singleton) ---
-# Todo el programa importará y usará esta única instancia.
 state_instance = SimulationState()
