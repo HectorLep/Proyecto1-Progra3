@@ -9,11 +9,11 @@ router = APIRouter()
 @router.get("/reports/pdf")
 async def get_pdf_report():
     """
-    Genera y retorna un reporte completo de la simulaci贸n en formato PDF.
+    Genera y retorna un reporte completo de la simulacion en formato PDF.
     """
     sim_data = state_instance.get_data() 
     if not sim_data.get("graph"):
-        raise HTTPException(status_code=404, detail="No hay datos de simulaci贸n activos para generar un reporte.")
+        raise HTTPException(status_code=404, detail="No hay datos de simulacion activos para generar un reporte.")
 
     try:
         pdf_content_bytes = generate_pdf_report_content(sim_data)
@@ -27,4 +27,4 @@ async def get_pdf_report():
         )
     except Exception as e:
         print(f"Error al generar el reporte PDF: {e}")
-        raise HTTPException(status_code=500, detail=f"Fall贸 la generaci贸n del reporte PDF: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Fallo la generacion del reporte PDF: {str(e)}")
