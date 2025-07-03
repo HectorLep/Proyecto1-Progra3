@@ -16,5 +16,5 @@ def borrar_pycache(directorio_base):
     print(f"\nTotal de carpetas '__pycache__' eliminadas: {contador}")
 
 if __name__ == "__main__":
-    ruta = os.path.dirname(os.path.abspath(__file__))  # carpeta actual
+    ruta = os.path.dirname(os.path.abspath(__file__))  
     borrar_pycache(ruta)

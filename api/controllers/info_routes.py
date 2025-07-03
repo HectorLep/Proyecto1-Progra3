@@ -5,8 +5,6 @@ from api.shared_simulation_state import state_instance
 
 router = APIRouter()
 
-# --- Modelos Pydantic ---
-
 class VisitedNodeRank(BaseModel):
     node_id: str
     type: str
@@ -18,14 +16,10 @@ class SimulationSummaryResponse(BaseModel):
     total_edges: int = 0
     node_type_distribution: Dict[str, int] = {}
 
-# --- Función Auxiliar ---
-
 def get_node_type(graph, node_id_str):
     if not graph: return "unknown"
     node_obj = graph.get_vertex_by_element(node_id_str)
     return node_obj.type() if node_obj else "unknown"
-
-# --- Endpoints ---
 
 @router.get("/info/reports/visits/clients", response_model=List[VisitedNodeRank])
 async def get_client_visit_ranking():
@@ -47,7 +41,7 @@ async def get_client_visit_ranking():
 @router.get("/info/reports/visits/recharges", response_model=List[VisitedNodeRank])
 async def get_recharge_visit_ranking():
     """Recupera un ranking de las estaciones de recarga más visitadas."""
-    sim_data = state_instance.get_data() # <-- USO CORREGIDO
+    sim_data = state_instance.get_data() 
     tracker = sim_data.get("route_tracker")
     graph = sim_data.get("graph")
 
@@ -64,7 +58,7 @@ async def get_recharge_visit_ranking():
 @router.get("/info/reports/visits/storages", response_model=List[VisitedNodeRank])
 async def get_storage_visit_ranking():
     """Recupera un ranking de los nodos de almacenamiento más visitados."""
-    sim_data = state_instance.get_data() # <-- USO CORREGIDO
+    sim_data = state_instance.get_data() 
     tracker = sim_data.get("route_tracker")
     graph = sim_data.get("graph")
 
@@ -81,12 +75,12 @@ async def get_storage_visit_ranking():
 @router.get("/info/reports/summary", response_model=SimulationSummaryResponse)
 async def get_general_summary():
     """Recupera un resumen general de la simulación activa."""
-    sim_data = state_instance.get_data() # <-- USO CORREGIDO
+    sim_data = state_instance.get_data() 
     summary_text = sim_data.get("summary", "No hay resumen disponible.")
     graph = sim_data.get("graph")
 
     if not graph:
-        return SimulationSummaryResponse(summary_text=summary_text)
+        raise HTTPException(status_code=409, detail="No active simulation found. Please run a simulation first.")
 
     type_dist = {v.type(): 0 for v in graph.vertices()}
     for v_obj in graph.vertices():
